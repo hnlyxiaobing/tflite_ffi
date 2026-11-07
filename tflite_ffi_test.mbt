@@ -1,10 +1,12 @@
 // Blackbox tests run against the package's public API. Use `@tflite_ffi` to import.
 // 覆盖：from_bytes→set_input→invoke→output_raw/output_desc→close 全链路、
 // 重复 close、未 invoke 读输出、越界 TensorIndex、缓冲不符、
-// resize_input+allocate_tensors 流程、output_desc 形状/dtype 快照、
-// 错误映射（ModelCreateFailed/InterpreterCreateFailed/InvalidTensorIndex/
-// BufferSizeMismatch/CopyFromBufferFailed/CopyToBufferFailed/InvokeFailed/
-// AlreadyClosed/UnsupportedDtype）。
+// output_desc 形状/dtype 快照、错误映射（ModelCreateFailed/
+// InterpreterCreateFailed/InvalidTensorIndex/BufferSizeMismatch/
+// AlreadyClosed/UnsupportedDtype）、状态机经只读访问器 `state()` 观测。
+// 冻结前 P0 变更：直接调用 `mb_tfl_*` shim 的 4 个测试已转白盒
+// （shim 收紧为包私有，见 tflite_ffi_wbtest.mbt）；`InferenceRuntime`
+// 外部实现测试与重复的 capi 版本测试已删除。
 
 ///|
 /// 测试辅助：STF1 stub 模型张量描述（格式见 `stub/README.md`）。
@@ -146,8 +148,8 @@ fn f32_output() -> Bytes {
 ///|
 test "blackbox full chain from_bytes set_input invoke output_raw output_desc close" {
   let interp = @tflite_ffi.Interpreter::from_bytes(model_f32(), opts())
-  assert_eq(1, interp.input_count)
-  assert_eq(1, interp.output_count)
+  assert_eq(1, interp.input_count())
+  assert_eq(1, interp.output_count())
   let desc = interp.output_desc(0)
   assert_eq("out", desc.name)
   assert_true(desc.dtype is @tflite_ffi.TensorDtype::Float32)
@@ -161,7 +163,7 @@ test "blackbox full chain from_bytes set_input invoke output_raw output_desc clo
   assert_eq(16, out.length())
   assert_true(out == f32_output())
   interp.close()
-  assert_true(interp.state is @tflite_ffi.InterpreterState::Closed)
+  assert_true(interp.state() is @tflite_ffi.InterpreterState::Closed)
 }
 
 ///|
@@ -205,7 +207,7 @@ test "blackbox close twice raises AlreadyClosed" {
   let e = expect_err(() => interp.close())
   assert_true(e is @tflite_ffi.TfLiteError::AlreadyClosed)
   // 重复 close 不破坏状态：仍为 Closed
-  assert_true(interp.state is @tflite_ffi.InterpreterState::Closed)
+  assert_true(interp.state() is @tflite_ffi.InterpreterState::Closed)
 }
 
 ///|
@@ -256,121 +258,6 @@ test "blackbox buffer size mismatch" {
 }
 
 ///|
-/// 动态尺寸模型：输出 [-1, 4] 在 allocate_tensors 时镜像 input 0 的轴 0。
-fn model_dynamic() -> Bytes {
-  build_model(
-    0x40000000,
-    [
-      TensorSpec::{
-        name: b"dyn_in",
-        dtype: 0,
-        dims: [1, 4],
-        qscale_bits: 0,
-        qzero: 0,
-      },
-    ],
-    [
-      TensorSpec::{
-        name: b"dyn_out",
-        dtype: 0,
-        dims: [-1, 4],
-        qscale_bits: 0,
-        qzero: 0,
-      },
-    ],
-  )
-}
-
-///|
-test "blackbox resize_input and allocate_tensors flow" {
-  let interp = @tflite_ffi.Interpreter::from_bytes(model_dynamic(), opts())
-  let dims : FixedArray[Int32] = [2, 4]
-  assert_eq(0, @tflite_ffi.mb_tfl_resize_input(interp.interp, 0, dims, 2))
-  // resize 后缓冲失效：未 allocate 之前写入按 CopyFromBufferFailed 传播
-  let input = f32_bytes([
-    0x3F800000, 0x40000000, 0x40400000, 0x40800000, 0x40A00000, 0x40C00000, 0x40E00000,
-    0x41000000,
-  ])
-  let e = expect_err(() => interp.set_input(0, input))
-  assert_true(e is @tflite_ffi.TfLiteError::CopyFromBufferFailed(2))
-  assert_eq(0, @tflite_ffi.mb_tfl_allocate_tensors(interp.interp))
-  // allocate 后：输入 32 字节、输出动态维镜像为 [2, 4]
-  interp.set_input(0, input)
-  interp.invoke()
-  let desc = interp.output_desc(0)
-  assert_eq("dyn_out", desc.name)
-  assert_eq([2, 4], desc.shape)
-  assert_eq(32, desc.byte_size)
-  let out = interp.output_raw(0)
-  assert_eq(32, out.length())
-  assert_true(
-    out ==
-    f32_bytes([
-      0x40000000, 0x40800000, 0x40C00000, 0x41000000, 0x41200000, 0x41400000, 0x41600000,
-      0x41800000,
-    ]),
-  )
-  interp.close()
-}
-
-///|
-test "blackbox ops before allocate after resize fail" {
-  let interp = @tflite_ffi.Interpreter::from_bytes(model_dynamic(), opts())
-  let dims : FixedArray[Int32] = [2, 4]
-  assert_eq(0, @tflite_ffi.mb_tfl_resize_input(interp.interp, 0, dims, 2))
-  let e1 = expect_err(() => interp.invoke())
-  assert_true(e1 is @tflite_ffi.TfLiteError::InvokeFailed(2))
-  let e2 = expect_err(() => ignore(interp.output_raw(0)))
-  assert_true(e2 is @tflite_ffi.TfLiteError::CopyToBufferFailed(2))
-  interp.close()
-}
-
-///|
-test "blackbox allocate_tensors fails on rank conflict" {
-  // 输出 [-1, -1] 需要 input 0 至少 rank 2；resize 成 rank 1 后 allocate 失败
-  let model = build_model(
-    0x3F800000,
-    [
-      TensorSpec::{
-        name: b"a",
-        dtype: 0,
-        dims: [2, 2],
-        qscale_bits: 0,
-        qzero: 0,
-      },
-    ],
-    [
-      TensorSpec::{
-        name: b"b",
-        dtype: 0,
-        dims: [-1, -1],
-        qscale_bits: 0,
-        qzero: 0,
-      },
-    ],
-  )
-  let interp = @tflite_ffi.Interpreter::from_bytes(model, opts())
-  let dims : FixedArray[Int32] = [4]
-  assert_eq(0, @tflite_ffi.mb_tfl_resize_input(interp.interp, 0, dims, 1))
-  assert_eq(1, @tflite_ffi.mb_tfl_allocate_tensors(interp.interp))
-  interp.close()
-}
-
-///|
-test "blackbox resize_input rejects invalid dims" {
-  let interp = @tflite_ffi.Interpreter::from_bytes(model_f32(), opts())
-  let empty : FixedArray[Int32] = []
-  assert_eq(1, @tflite_ffi.mb_tfl_resize_input(interp.interp, 0, empty, 0))
-  let neg : FixedArray[Int32] = [1, -2]
-  assert_eq(1, @tflite_ffi.mb_tfl_resize_input(interp.interp, 0, neg, 2))
-  let zero_dim : FixedArray[Int32] = [0, 4]
-  assert_eq(1, @tflite_ffi.mb_tfl_resize_input(interp.interp, 0, zero_dim, 2))
-  let bad_index : FixedArray[Int32] = [1, 4]
-  assert_eq(1, @tflite_ffi.mb_tfl_resize_input(interp.interp, 5, bad_index, 2))
-  interp.close()
-}
-
-///|
 test "blackbox bad model bytes raise ModelCreateFailed" {
   let e1 = expect_err(() => {
     ignore(@tflite_ffi.Interpreter::from_bytes(b"", opts()))
@@ -416,11 +303,6 @@ test "blackbox invalid thread count raises InterpreterCreateFailed" {
     ignore(@tflite_ffi.Interpreter::from_bytes(model_f32(), bad))
   })
   assert_true(e is @tflite_ffi.TfLiteError::InterpreterCreateFailed(-2))
-}
-
-///|
-test "blackbox capi version is stable" {
-  assert_eq(0x00010001, @tflite_ffi.mb_tfl_capi_version())
 }
 
 ///|
@@ -502,8 +384,8 @@ test "blackbox multi input multi output pairing" {
     ],
   )
   let interp = @tflite_ffi.Interpreter::from_bytes(model, opts())
-  assert_eq(2, interp.input_count)
-  assert_eq(2, interp.output_count)
+  assert_eq(2, interp.input_count())
+  assert_eq(2, interp.output_count())
   interp.set_input(0, f32_bytes([0x3F800000, 0x40000000])) // [1,2]
   interp.set_input(1, f32_bytes([0x3F000000, 0xBF800000])) // [0.5,-1]
   interp.invoke()
@@ -516,39 +398,11 @@ test "blackbox multi input multi output pairing" {
 }
 
 ///|
-/// 包外（测试包）为本地类型实现 `InferenceRuntime`：验证 `pub(open)` trait
-/// 契约可被包外实现（组合根适配模式，DESIGN.md §3 / ADR-0004）。
-struct RuntimeAdapter {
-  interp : @tflite_ffi.Interpreter
-}
-
-///|
-impl @tflite_ffi.InferenceRuntime for RuntimeAdapter with fn invoke(self) {
-  self.interp.invoke()
-}
-
-///|
-impl @tflite_ffi.InferenceRuntime for RuntimeAdapter with fn output_count(self) {
-  self.interp.output_count
-}
-
-///|
-test "blackbox InferenceRuntime trait is implementable outside the package" {
-  let interp = @tflite_ffi.Interpreter::from_bytes(model_f32(), opts())
-  let rt = RuntimeAdapter::{ interp, }
-  assert_eq(1, @tflite_ffi.InferenceRuntime::output_count(rt))
-  interp.set_input(0, f32_input())
-  @tflite_ffi.InferenceRuntime::invoke(rt)
-  assert_true(interp.output_raw(0) == f32_output())
-  interp.close()
-}
-
-///|
 test "blackbox state machine transitions" {
   let interp = @tflite_ffi.Interpreter::from_bytes(model_f32(), opts())
-  assert_true(interp.state is @tflite_ffi.InterpreterState::Ready)
+  assert_true(interp.state() is @tflite_ffi.InterpreterState::Ready)
   interp.invoke()
-  assert_true(interp.state is @tflite_ffi.InterpreterState::Ready)
+  assert_true(interp.state() is @tflite_ffi.InterpreterState::Ready)
   interp.close()
-  assert_true(interp.state is @tflite_ffi.InterpreterState::Closed)
+  assert_true(interp.state() is @tflite_ffi.InterpreterState::Closed)
 }

@@ -2,8 +2,8 @@
 
 **TensorFlow Lite / LiteRT C API 封装 —— 模型加载、张量读写、invoke 与输出读取的纯推理运行时绑定。**
 
-> 状态：**Round-1 架构与声明可评审**。已写入 `#external` 句柄、`extern "C"` shim 签名、值类型与 `declare` 包装 API，`moon check` 0 error（6 条预期 `0068` 告警）。**无 shim 实现、无推理逻辑**。
-> `preferred_target` 本轮由 `wasm` 改为 `native`（唯一配置改动，理由见 ADR-0007）。
+> 状态（**R2 冻结前 P0 整改轮**，2026-11-07）：**实现完成**——4 个 `#external` 句柄、**17 个包私有 `extern "C"` shim**、值类型与错误模型，MoonBit 侧 6 个公开方法 + 3 个只读访问器均为真实实现，由 `stub/mb_tfl_stub.c`（`native-stub`，**CI 默认后端**）提供桌面确定性 C 实现。**无 `declare` 存根、无 `0068`**；五项门禁（`moon clean` / `moon check --deny-warn` / `moon build` / `moon test` / `moon fmt --check`）实跑全绿，21 个测试全过。
+> `preferred_target = "native"`（ADR-0007）。真实 `libtensorflowlite_c` 对接与数值对齐留待 **R2**，本轮不引入任何外部库、不破坏 stub 双路径。
 
 ## 定位与为什么存在
 
@@ -15,18 +15,22 @@
 
 ## 能力范围 / 非目标
 
-- **做**：模型字节 → model/options/interpreter 句柄；输入张量写入；动态尺寸调整；`allocate_tensors`；`invoke`；输出张量读出；输出张量描述（形状/dtype/字节数）。
+- **做**：模型字节 → model/options/interpreter 句柄；输入张量写入；`invoke`；输出张量读出；输出张量描述（形状/dtype/字节数/量化/名称）。C shim 层另有 `mb_tfl_resize_input` / `mb_tfl_allocate_tensors`（白盒直调覆盖），MoonBit 公开面暂未暴露 resize/allocate——属冻结范围内的非目标。
 - **不做**：图像预处理/后处理、模型下载、模型 zoo、量化决策、GPU/delegate、Extension/opaque API、`foreign_library` 导出。
 - 后端可替换：`pose` 持有 `PoseBackend` trait，本库**不依赖 pose**，由组合根适配（ADR-0004）。
+  **冻结前 P0（决策 2）**：本库原 `pub(open) trait InferenceRuntime` 已删除（唯一消费者是测试替身），后端抽象统一由 `pose::PoseBackend` 承担。
 
 ## 公开接口（速览）
 
-`Interpreter::{from_bytes, close, set_input, output_raw, invoke, output_desc}`。外部 shim 与外部句柄清单见 `API.md`。
+- 方法：`Interpreter::{from_bytes, close, set_input, output_raw, invoke, output_desc}`（签名冻结，全部真实实现）。
+- 只读访问器（冻结前 P0 新增，决策 5 的配套）：`Interpreter::{state, input_count, output_count}`。
+- `Interpreter` 为**抽象类型**（字段全私有：MoonBit 无字段级可见性修饰符，`pub(all)` 会公开 `mut state`，`pub` 实测仍可包外读字段，故整体收紧）；外部 shim 与句柄清单见 `API.md`。
+- 错误：`TfLiteError` 为 `pub(all) suberror`（13 个构造，含 `NullHandle`），冻结前已追认（见 `API.md`「冻结前追认记录」）。
 
 ## 依赖
 
-- **本轮零依赖、零 shim 实现**；独立 `moon.mod`，`moon check` 独立通过。
-- 后续轮：`libtensorflowlite_c.so`（Android armv7/arm64 + 桌面 x86-64）、`native-stub` C 文件、`link.native` 配置（由 `moon_abi` 生成）。Android 分发可从 Maven `org.tensorflow:tensorflow-lite` AAR 取 `jni/<abi>/libtensorflowlite_jni.so` 与 `headers/tensorflow/lite/c/`。
+- **本轮零外部依赖**：只有项目内 `stub/mb_tfl_stub.c`（`moon.pkg` 的 `native-stub`），不链接/下载任何外部库。
+- R2 起：`libtensorflowlite_c.so`（Android armv7/arm64 + 桌面 x86-64）、`link.native` 配置（由 `moon_abi` 生成）。Android 分发可从 Maven `org.tensorflow:tensorflow-lite` AAR 取 `jni/<abi>/libtensorflowlite_jni.so` 与 `headers/tensorflow/lite/c/`。
 
 ## 平台与许可风险
 
@@ -36,19 +40,40 @@
 
 ## 测试与验收
 
-- **测试策略**：桌面 `.so` 跑 224×224 分类模型，与 Python `tflite-runtime` 逐元素误差 < 1e-4；重复 `close` / 空句柄 / 缓冲长度不足 / status code 非 0 的错误路径；`moon test --enable-coverage`。
-- **验收标准**（实现轮）：分类模型跑通且数值对齐；`Interpreter::close` 幂等；所有 C status code 转成 `TfLiteError` 而非 panic。
-- **本轮阻塞（预期）**：`moon build` / `moon test` 会在链接期失败——`mb_tfl_*` shim 符号尚无实现。详见 `../docs/moon-check-report.md` §4。
+- **当前（stub 后端）**：21 个测试（12 黑盒 + 9 白盒）覆盖全链路、错误映射、状态机、dtype/版本断言与 shim 语义。
+- **R2 目标（真实库）**：桌面 `.so` 跑 224×224 分类模型，与 Python `tflite-runtime` 逐元素误差 < 1e-4；重复 `close` / 空句柄 / 缓冲长度不足 / status code 非 0 的错误路径；`moon test --enable-coverage`。
+- **验收标准**：分类模型跑通且数值对齐；`Interpreter::close` **不会二次释放，重复调用返回明确错误**；所有 C status code 转成 `TfLiteError` 而非 panic（✅ stub 下已达成）。
+- **门禁**：五项门禁 R2 冻结前 P0 实跑全部 exit 0（明细见 `API.md` 末节）。
 
 ## 当前状态 / 本轮产物
 
 | 项 | 状态 |
 |---|---|
-| `tflite_ffi.mbt`：`#external` 句柄 ×4、`extern "C"` shim ×15、`declare` API ×6 | ✅ |
-| `pkg.generated.mbti` API 快照 | ✅ |
-| C shim / `native-stub` / 链接配置 / 模型文件 | ❌ 后续轮 |
-| `moon check` | ✅ 0 error（6 × `0068`，预期） |
+| `tflite_ffi.mbt`：`#external` 句柄 ×4、**包私有** `extern "C"` shim ×17、值类型/错误模型 | ✅ |
+| `interpreter.mbt`：6 个公开方法 + 3 个只读访问器（真实实现，无 `declare`） | ✅ |
+| `stub/mb_tfl_stub.c`：17 个 `mb_tfl_*` 确定性 C 实现 + 4 个私有内部 ABI 符号 | ✅ |
+| `pkg.generated.mbti` API 快照 | ✅ 由 `moon check`/`moon build` 自动同步（本轮未运行 `moon info`，最终审阅由主控执行） |
+| 真实 `libtensorflowlite_c` 链接 / 数值对齐 / 上板 | ⏳ R2 |
+| 五项门禁（clean / check --deny-warn / build / test / fmt --check） | ✅ 全绿，21/21 测试 |
+
+## 冻结前 P0 变更摘要（R2 准备轮）
+
+1. **删除 `InferenceRuntime` trait**（决策 2）及其外部实现测试；`Interpreter` 公开方法零变化。
+2. **`Interpreter` 字段整体收紧为包私有**（决策 5）+ 3 个只读访问器；黑盒测试改经访问器读 `state`/`input_count`/`output_count`。
+3. **追认**（决策 4，加法性，已在 `API.md` 标注）：`TfLiteError` `pub(all) suberror`、`NullHandle` 构造器、`TensorDtype::Int64`——源码现状已符合。
+4. **17 个 `mb_tfl_*` shim 由 `pub` 收敛为包私有**（决策 6），不再进 `moon info` 快照；直接调用它们的 4 个黑盒测试迁入白盒。
+5. **API.md shim 数量 15 → 17**（决策 9，按源码/快照修正）。
+6. **close 语义三处文档统一**（决策 8）：「不会二次释放，重复调用返回明确错误」。
+
+### 测试数变化明细（R1 基线 23 → 本轮 21）
+
+| 变化 | 数量 | 用例 |
+|---|---|---|
+| 删除（决策 2） | −1 | `blackbox InferenceRuntime trait is implementable outside the package`（连同 `RuntimeAdapter` 结构与 2 个 `impl` 一起删除） |
+| 删除（shim 私有化后的重复覆盖） | −1 | `blackbox capi version is stable`——与白盒 `wb expected_capi_version matches shim` 断言完全等价（`expected_capi_version == mb_tfl_capi_version() == 0x00010001`），且黑盒已无法调用私有 shim |
+| 黑盒 → 白盒迁移（0 净变化） | ±4 | `resize_input and allocate_tensors flow` / `ops before allocate after resize fail` / `allocate_tensors fails on rank conflict` / `resize_input rejects invalid dims`（shim 私有化后黑盒不可直调；迁移时按白盒惯例复制 STF1 夹具辅助） |
+| 最终 | **21** | 12 黑盒 + 9 白盒（`moon test`：`Total tests: 21, passed: 21, failed: 0`） |
 
 ## 文档索引
 
-`DESIGN.md` · `API.md` · `../docs/architecture.md` §5 · `../docs/adr/ADR-0004`、`ADR-0007`、`ADR-0008`、`ADR-0009`
+`DESIGN.md` · `API.md` · `README.mbt.md` · `../docs/architecture.md` §5 · `../docs/adr/ADR-0004`、`ADR-0007`、`ADR-0008`、`ADR-0009`

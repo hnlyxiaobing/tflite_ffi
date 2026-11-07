@@ -1,5 +1,7 @@
 ///|
-/// MoonBit 侧公开 API 的实现（API.md「MoonBit 侧公开 API」，签名不变）。
+/// MoonBit 侧公开 API 的实现（API.md「MoonBit 侧公开 API」）。
+/// 既有 6 个方法签名零变化；冻结前 P0 仅新增 3 个只读访问器
+/// `Interpreter::{state, input_count, output_count}`（字段收紧为包私有后的包外读取通道）。
 ///
 /// 状态机：`from_bytes` → `Ready`；`invoke` 期间 `Invoking`；`close` → `Closed`。
 /// 资源生命周期（API.md 句柄表）：
@@ -14,8 +16,8 @@
 let expected_capi_version : Int32 = 0x00010001
 
 ///|
-/// 内部 ABI：句柄存活探测（`stub/` 私有符号，不属于 API.md 的 15 个公开 shim，
-/// 不出现在 `pkg.generated.mbti`）。R2 对接真实 `c_api.h` 时映射到空指针检查。
+/// 内部 ABI：句柄存活探测（`stub/` 私有符号，不属于 API.md 的 17 个
+/// `mb_tfl_*` shim，不出现在 `pkg.generated.mbti`）。R2 对接真实 `c_api.h` 时映射到空指针检查。
 extern "C" fn stub_model_alive(model : TfLiteModelRaw) -> Int32 = "tflite_ffi_private_model_alive"
 
 ///|
@@ -163,6 +165,25 @@ fn ensure_open(interp : Interpreter) -> Unit raise TfLiteError {
 }
 
 ///|
+/// 只读访问器（冻结前 P0 · 决策 5）：`Interpreter` 字段收紧为包私有后，
+/// 包外读取状态机状态的唯一通道；无 setter，包外不可改写状态。
+pub fn Interpreter::state(self : Interpreter) -> InterpreterState {
+  self.state
+}
+
+///|
+/// 只读访问器：输入张量数量快照（`from_bytes` 创建时取定，不可变）。
+pub fn Interpreter::input_count(self : Interpreter) -> Int32 {
+  self.input_count
+}
+
+///|
+/// 只读访问器：输出张量数量快照（`from_bytes` 创建时取定，不可变）。
+pub fn Interpreter::output_count(self : Interpreter) -> Int32 {
+  self.output_count
+}
+
+///|
 /// 从模型字节创建解释器。
 ///
 /// - 获取资源：model / options / interpreter 三个 C 句柄；失败时按创建逆序释放。
@@ -236,7 +257,9 @@ pub fn Interpreter::from_bytes(
 }
 
 ///|
-/// 释放全部 C 句柄并使包装值失效（幂等；重复调用返回 `AlreadyClosed`）。
+/// 释放全部 C 句柄并使包装值失效。close 语义（冻结前 P0 · 决策 8，与
+/// API.md / DESIGN.md / README 统一）：**不会二次释放，重复调用返回明确错误**
+/// （`AlreadyClosed`）：首次调用置 `state = Closed` 并释放，其后一律 raise。
 /// 逆序释放：interpreter → model（options 已在 `from_bytes` 内释放）。
 pub fn Interpreter::close(self : Interpreter) -> Unit raise TfLiteError {
   if self.state is Closed {
@@ -294,9 +317,9 @@ pub fn Interpreter::output_raw(
 
 ///|
 /// 执行一次同步推理（同一 `Interpreter` 不可并发）。
-/// 逻辑直接实现于本方法；`InferenceRuntime` trait 由包外组合根适配器
-/// （如 `pose` 的 PoseBackend）自行实现（DESIGN.md §3），本包不提供 impl，
-/// 避免 trait 方法隐式提升为 `Interpreter` 点语法方法而扩大公开接口。
+/// 逻辑直接实现于本方法，本包不提供任何 trait 接口
+/// （原 `InferenceRuntime` 已于冻结前 P0 删除，决策 2）；
+/// 后端抽象由 `pose::PoseBackend` 承担，由组合根适配（DESIGN.md §3）。
 pub fn Interpreter::invoke(self : Interpreter) -> Unit raise TfLiteError {
   ensure_open(self)
   self.state = Invoking

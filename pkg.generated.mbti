@@ -6,39 +6,6 @@ import {
 }
 
 // Values
-pub fn mb_tfl_allocate_tensors(TfLiteInterpreterRaw) -> Int32
-
-pub fn mb_tfl_capi_version() -> Int32
-
-pub fn mb_tfl_input_count(TfLiteInterpreterRaw) -> Int32
-
-pub fn mb_tfl_input_tensor(TfLiteInterpreterRaw, Int32) -> TfLiteTensorRaw
-
-pub fn mb_tfl_interpreter_create(TfLiteModelRaw, TfLiteOptionsRaw) -> TfLiteInterpreterRaw
-
-pub fn mb_tfl_interpreter_delete(TfLiteInterpreterRaw) -> Unit
-
-pub fn mb_tfl_invoke(TfLiteInterpreterRaw) -> Int32
-
-pub fn mb_tfl_model_create(Bytes, Int32) -> TfLiteModelRaw
-
-pub fn mb_tfl_model_delete(TfLiteModelRaw) -> Unit
-
-pub fn mb_tfl_options_create() -> TfLiteOptionsRaw
-
-pub fn mb_tfl_options_delete(TfLiteOptionsRaw) -> Unit
-
-pub fn mb_tfl_options_set_threads(TfLiteOptionsRaw, Int32) -> Unit
-
-pub fn mb_tfl_output_count(TfLiteInterpreterRaw) -> Int32
-
-pub fn mb_tfl_output_tensor(TfLiteInterpreterRaw, Int32) -> TfLiteTensorRaw
-
-pub fn mb_tfl_resize_input(TfLiteInterpreterRaw, Int32, FixedArray[Int32], Int32) -> Int32
-
-pub fn mb_tfl_tensor_copy_from(TfLiteTensorRaw, Bytes, Int32) -> Int32
-
-pub fn mb_tfl_tensor_copy_to(TfLiteTensorRaw, FixedArray[Byte], Int32) -> Int32
 
 // Errors
 #derive(@debug.Debug)
@@ -60,20 +27,16 @@ pub(all) suberror TfLiteError {
 pub fn TfLiteError::to_repr(Self) -> @debug.Repr
 
 // Types and methods
-pub(all) struct Interpreter {
-  model : TfLiteModelRaw
-  interp : TfLiteInterpreterRaw
-  owns_model : Bool
-  mut state : InterpreterState
-  input_count : Int32
-  output_count : Int32
-}
+type Interpreter
 pub fn Interpreter::close(Self) -> Unit raise TfLiteError
 pub fn Interpreter::from_bytes(Bytes, InterpreterOptions) -> Self raise TfLiteError
+pub fn Interpreter::input_count(Self) -> Int32
 pub fn Interpreter::invoke(Self) -> Unit raise TfLiteError
+pub fn Interpreter::output_count(Self) -> Int32
 pub fn Interpreter::output_desc(Self, Int32) -> TensorDesc raise TfLiteError
 pub fn Interpreter::output_raw(Self, Int32) -> Bytes raise TfLiteError
 pub fn Interpreter::set_input(Self, Int32, Bytes) -> Unit raise TfLiteError
+pub fn Interpreter::state(Self) -> InterpreterState
 
 pub(all) struct InterpreterOptions {
   thread_count : Int32
@@ -127,7 +90,3 @@ pub type StatusCode = Int32
 pub type TensorIndex = Int32
 
 // Traits
-pub(open) trait InferenceRuntime {
-  fn invoke(Self) -> Unit raise TfLiteError
-  fn output_count(Self) -> Int32
-}

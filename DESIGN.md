@@ -1,6 +1,10 @@
 # tflite_ffi · 设计契约（DESIGN.md）
 
-> Round-1 / 2026-11-06 ｜ 状态：架构与声明可评审，无 shim 实现、无推理逻辑
+> R2 冻结前 P0 整改轮 / 2026-11-07 ｜ 状态：**实现完成**（桌面确定性 C stub 双路径，
+> stub 为 CI 默认后端）；`moon clean` / `moon check --deny-warn` / `moon build` /
+> `moon test`（21 tests）/ `moon fmt --check` 五项门禁全绿。
+> 真实 `libtensorflowlite_c` 对接与数值对齐留待 R2；**冻结前公开面只做三类变化**：
+> 删除 `InferenceRuntime` 死接口、`Interpreter` 字段与 17 个 shim 私有化、文档化追认。
 
 ## 1. 分层位置与职责
 
@@ -12,11 +16,14 @@ L3 感知绑定层的**推理运行时 FFI 封装**。职责：把 LiteRT `c_api
 组合根适配器 (impl pose::PoseBackend)
       │ infer(Bytes) -> Bytes
       ▼
-Interpreter::set_input / invoke / output_raw     ← declare（MoonBit 侧公开 API）
+Interpreter::set_input / invoke / output_raw     ← MoonBit 侧公开 API（6 方法 + 3 只读访问器，已实现）
       │
       ▼
-mb_tfl_*  extern "C" shim（15 个，本轮只有声明）
+mb_tfl_*  extern "C" shim（17 个，包私有实现 ABI，不进 moon info 快照）
       │
+      ▼
+stub/mb_tfl_stub.c（native-stub，CI 默认后端）
+      │  R2 起可切换
       ▼
 tensorflowlite_c.so / c_api.h
 ```
@@ -28,16 +35,18 @@ tensorflowlite_c.so / c_api.h
 | 类型 | 作用 |
 |---|---|
 | `TfLiteModelRaw` / `TfLiteOptionsRaw` / `TfLiteInterpreterRaw` / `TfLiteTensorRaw` | `#external` 外部句柄，C 后端 = `void*`，MoonBit **不做引用计数** |
-| `Interpreter { model, interp, owns_model, state, input_count, output_count }` | MoonBit 侧 RAII 包装值，集中记录释放责任 |
-| `TensorDesc` / `TensorDtype` / `Quantization` | 张量只读快照 |
+| `Interpreter`（**抽象类型，字段全私有**：`model, interp, owns_model, state, input_count, output_count`） | MoonBit 侧 RAII 包装值，集中记录释放责任；包外经 `state()` / `input_count()` / `output_count()` 只读访问 |
+| `TensorDesc` / `TensorDtype`（含 `Int64`）/ `Quantization` | 张量只读快照 |
 | `InterpreterOptions` / `InterpreterState` | 选项纯值 / 状态机 |
-| `TfLiteError` | 12 个错误构造，C status code 已枚举化 |
+| `TfLiteError` | **13** 个错误构造（`pub(all) suberror`），C status code 已枚举化 |
 | `TensorIndex` / `StatusCode` | 索引 / 状态码别名 |
-| `InferenceRuntime` trait | `invoke` / `output_count` 契约（供组合根适配） |
+
+> **冻结前 P0（决策 2）**：原 `pub(open) trait InferenceRuntime`（`invoke` / `output_count` 契约）
+> 已删除——唯一消费者是测试替身；后端抽象由 `pose::PoseBackend` 承担（ADR-0004 组合根适配不变）。
 
 ## 4. 错误模型
 
-`TfLiteError`：`LibraryNotLoaded`、`ModelCreateFailed(code)`、`InterpreterCreateFailed(code)`、`AllocateTensorsFailed(code)`、`InvalidTensorIndex`、`ResizeFailed`、`CopyFromBufferFailed`、`CopyToBufferFailed`、`InvokeFailed`、`BufferSizeMismatch`、`UnsupportedDtype`、`AlreadyClosed`、`NullHandle`。
+`TfLiteError`：`LibraryNotLoaded`、`ModelCreateFailed(code)`、`InterpreterCreateFailed(code)`、`AllocateTensorsFailed(code)`、`InvalidTensorIndex`、`ResizeFailed`、`CopyFromBufferFailed`、`CopyToBufferFailed`、`InvokeFailed`、`BufferSizeMismatch`、`UnsupportedDtype`、`AlreadyClosed`、`NullHandle`（**13 个**）。
 
 规则：shim 边界把每个非 0 status code 转成对应错误；禁止把裸 `Int` 泄漏给上层；禁止 panic。
 
@@ -46,11 +55,14 @@ tensorflowlite_c.so / c_api.h
 | 资源 | 获取 | 唯一释放点 | 规则 |
 |---|---|---|---|
 | model | `mb_tfl_model_create` | `Interpreter::close`（`owns_model=true`） | 只释放一次 |
-| options | `mb_tfl_options_create` | 创建 interpreter 后由 shim 释放（实现轮） | 生命周期最短 |
+| options | `mb_tfl_options_create` | 创建 interpreter 后立即释放（`from_bytes` 内） | 生命周期最短 |
 | interpreter | `mb_tfl_interpreter_create` | `Interpreter::close` | 只释放一次 |
 | tensor | `mb_tfl_*_tensor` | **不单独释放**（借用，依附 interp） | interp 释放后失效 |
 
-`Interpreter::close` 幂等；调用后 `state = Closed`，再次调用返回 `AlreadyClosed`。创建失败时按创建逆序释放已获取的句柄。
+**close 语义（冻结前 P0 · 决策 8，与 API.md / README 统一措辞）**：
+`Interpreter::close` **不会二次释放，重复调用返回明确错误**——首次调用置 `state = Closed`
+并释放 interpreter → model，其后每次调用 raise `AlreadyClosed`（不触碰任何 C 句柄）。
+创建失败时按创建逆序释放已获取的句柄。
 
 ## 6. 线程 / 并发边界
 
@@ -60,17 +72,18 @@ tensorflowlite_c.so / c_api.h
 
 ## 7. 平台约束与外部依赖
 
-- `preferred_target = "native"`（本轮调整）；wasm 目标下 `extern "C"` 报 E4156。
+- `preferred_target = "native"`；wasm 目标下 `extern "C"` 报 E4156。
 - Windows native 需 MSVC `cl.exe`/`clang-cl.exe`，MinGW 不支持；LLVM 后端不支持 FFI。
 - native 后端**无法把 `foreign_library` 导出为可链接 `.so`** → Android 集成必须走「C stub + 宿主 NDK/CMake」。
-- 后续依赖：`libtensorflowlite_c.so`、`native-stub` C 文件、`link.native.cc/cc-flags/cc-link-flags`（由 `moon_abi` 生成）。
+- 依赖：`stub/mb_tfl_stub.c` 已落地（`moon.pkg` 的 `native-stub`，**CI 默认后端**，不引入任何外部库）；
+  真实 `libtensorflowlite_c.so` 与 `link.native.cc/cc-flags/cc-link-flags`（由 `moon_abi` 生成）留待 R2。
 
 ## 8. 外部类型 / 句柄 / 回调 / 所有权规则
 
 | 类别 | 声明 | 规则 |
 |---|---|---|
 | 外部类型 | `#external pub type TfLiteModelRaw` 等 4 个 | C 后端 `void*`；不参与 MoonBit 引用计数；**永不跨模块传递** |
-| 外部函数 | `pub extern "C" fn mb_tfl_* ... = "mb_tfl_*"` 共 15 个 | 符号由后续 `native-stub` 提供；一对一转发 `c_api.h`；统一 status code |
+| 外部函数 | `extern "C" fn mb_tfl_* ... = "mb_tfl_*"` 共 **17 个**（**包私有**，冻结前 P0 由 `pub` 收敛；其中 `resize_input` / `allocate_tensors` 的绑定带 `_` 前缀，C 符号不变，见 API.md） | 符号由 `stub/mb_tfl_stub.c` 提供；一对一转发 `c_api.h`；统一 status code；不进 `moon info` 快照 |
 | `#borrow` | `mb_tfl_model_create(model_bytes)`、`mb_tfl_resize_input(dims)`、`mb_tfl_tensor_copy_from(src)`、`mb_tfl_tensor_copy_to(dst)` | C 侧只读/复制或填充，不 `decref`；MoonBit 保留所有权 |
 | 回调 | **本库无回调** | 推理是同步调用，避免引入 FuncRef 与线程问题 |
 | 缓冲 | `FixedArray[Byte]` / `Bytes` + `size` | 必须校验 capacity；不足返回 `BufferSizeMismatch` |
@@ -85,14 +98,16 @@ tensorflowlite_c.so / c_api.h
 
 | 层次 | 内容 |
 |---|---|
-| 黑盒 | 224×224 分类模型与 Python `tflite-runtime` 逐元素误差 < 1e-4 |
-| 白盒 | status code → `TfLiteError` 映射；`close` 幂等；空句柄；缓冲长度不足 |
+| 黑盒（12） | `from_bytes → set_input → invoke → output_raw/output_desc → close` 全链路；重复 close；越界 `TensorIndex`；缓冲长度不符；fp16/量化快照；错误映射；状态机经只读访问器 `state()` 观测 |
+| 白盒（9） | status code → `TfLiteError` 映射；`NullHandle`；`ensure_open` 守卫；dtype 编码表；版本断言；**由黑盒迁入的 `_mb_tfl_resize_input` / `_mb_tfl_allocate_tensors` 直调**（shim 私有化后黑盒不可再调用） |
+| R2 目标 | 224×224 分类模型与 Python `tflite-runtime` 逐元素误差 < 1e-4（真实库对接后） |
 | 平台 | 桌面 x86-64 先验证；上板测 armv7/arm64 与帧率预算 |
-| 门禁 | `moon fmt --check` / `moon check`（本轮不加 `--deny-warn`） |
+| 门禁 | `moon clean` → `moon check --deny-warn` → `moon build` → `moon test` → `moon fmt --check`（R2 冻结前 P0 实跑，全部 exit 0） |
 
-## 11. 验收标准（实现轮）
+## 11. 验收标准
 
-1. 分类模型跑通且数值对齐；2. 重复 close / 空句柄不崩溃；3. 所有错误经 `TfLiteError` 传播；4. R4 `--deny-warn` 转绿。
+1. 分类模型跑通且数值对齐（R2 真实库）；2. 重复 close / 空句柄不崩溃（✅ stub 下已验证）；
+3. 所有错误经 `TfLiteError` 传播（✅）；4. `--deny-warn` 转绿（✅ 冻结前 P0 实跑 0 error / 0 warning）。
 
 ## 12. 未解决问题 / 待验证假设
 
@@ -102,7 +117,11 @@ tensorflowlite_c.so / c_api.h
 
 ## 13. 当前状态与 TODO
 
-`tflite_ffi.mbt` 已写入 4 个 `#external` 句柄、15 个 `extern "C"` shim 声明、值类型、错误模型与 6 个 `declare` API，全部公开 API 有 `///` 文档注释与 `TODO(实现轮)`。**无 C shim、无 `native-stub`、无链接配置、无业务逻辑**。
+`tflite_ffi.mbt` 含 4 个 `#external` 句柄、**17 个包私有 `extern "C"` shim 声明**（2 个绑定带
+`_` 前缀，见 API.md）、值类型与错误模型；`interpreter.mbt` 实现 6 个公开方法 + 3 个只读访问器，
+全部为真实实现（**无 `declare`、无 `TODO(实现轮)`、无 `0068`**），`stub/mb_tfl_stub.c` 提供
+桌面确定性 C 实现（`native-stub`）。剩余 TODO 全部属于 R2：真实 `libtensorflowlite_c` 对接、
+数值对齐 <1e-4、上板验证。
 
 ## References
 
