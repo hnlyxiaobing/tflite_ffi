@@ -1,0 +1,7 @@
+// import {
+//   "hnlyxiaobing/tflite_ffi" @lib,
+// }
+
+options(
+  "native-stub": [ "stub/mb_tfl_stub.c" ],
+)

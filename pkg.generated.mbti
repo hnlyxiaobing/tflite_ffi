@@ -1,0 +1,133 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "hnlyxiaobing/tflite_ffi"
+
+import {
+  "moonbitlang/core/debug",
+}
+
+// Values
+pub fn mb_tfl_allocate_tensors(TfLiteInterpreterRaw) -> Int32
+
+pub fn mb_tfl_capi_version() -> Int32
+
+pub fn mb_tfl_input_count(TfLiteInterpreterRaw) -> Int32
+
+pub fn mb_tfl_input_tensor(TfLiteInterpreterRaw, Int32) -> TfLiteTensorRaw
+
+pub fn mb_tfl_interpreter_create(TfLiteModelRaw, TfLiteOptionsRaw) -> TfLiteInterpreterRaw
+
+pub fn mb_tfl_interpreter_delete(TfLiteInterpreterRaw) -> Unit
+
+pub fn mb_tfl_invoke(TfLiteInterpreterRaw) -> Int32
+
+pub fn mb_tfl_model_create(Bytes, Int32) -> TfLiteModelRaw
+
+pub fn mb_tfl_model_delete(TfLiteModelRaw) -> Unit
+
+pub fn mb_tfl_options_create() -> TfLiteOptionsRaw
+
+pub fn mb_tfl_options_delete(TfLiteOptionsRaw) -> Unit
+
+pub fn mb_tfl_options_set_threads(TfLiteOptionsRaw, Int32) -> Unit
+
+pub fn mb_tfl_output_count(TfLiteInterpreterRaw) -> Int32
+
+pub fn mb_tfl_output_tensor(TfLiteInterpreterRaw, Int32) -> TfLiteTensorRaw
+
+pub fn mb_tfl_resize_input(TfLiteInterpreterRaw, Int32, FixedArray[Int32], Int32) -> Int32
+
+pub fn mb_tfl_tensor_copy_from(TfLiteTensorRaw, Bytes, Int32) -> Int32
+
+pub fn mb_tfl_tensor_copy_to(TfLiteTensorRaw, FixedArray[Byte], Int32) -> Int32
+
+// Errors
+#derive(@debug.Debug)
+pub(all) suberror TfLiteError {
+  LibraryNotLoaded(String)
+  ModelCreateFailed(Int32)
+  InterpreterCreateFailed(Int32)
+  AllocateTensorsFailed(Int32)
+  InvalidTensorIndex(Int32)
+  ResizeFailed(Int32, String)
+  CopyFromBufferFailed(Int32)
+  CopyToBufferFailed(Int32)
+  InvokeFailed(Int32)
+  BufferSizeMismatch(Int32, Int32)
+  UnsupportedDtype(String)
+  AlreadyClosed
+  NullHandle(String)
+}
+pub fn TfLiteError::to_repr(Self) -> @debug.Repr
+
+// Types and methods
+pub(all) struct Interpreter {
+  model : TfLiteModelRaw
+  interp : TfLiteInterpreterRaw
+  owns_model : Bool
+  mut state : InterpreterState
+  input_count : Int32
+  output_count : Int32
+}
+pub fn Interpreter::close(Self) -> Unit raise TfLiteError
+pub fn Interpreter::from_bytes(Bytes, InterpreterOptions) -> Self raise TfLiteError
+pub fn Interpreter::invoke(Self) -> Unit raise TfLiteError
+pub fn Interpreter::output_desc(Self, Int32) -> TensorDesc raise TfLiteError
+pub fn Interpreter::output_raw(Self, Int32) -> Bytes raise TfLiteError
+pub fn Interpreter::set_input(Self, Int32, Bytes) -> Unit raise TfLiteError
+
+pub(all) struct InterpreterOptions {
+  thread_count : Int32
+  allow_fp16 : Bool
+}
+
+pub(all) enum InterpreterState {
+  Uninitialized
+  Ready
+  Invoking
+  Closed
+}
+
+pub(all) struct Quantization {
+  scale : Double
+  zero_point : Int32
+}
+
+pub(all) struct TensorDesc {
+  name : String
+  dtype : TensorDtype
+  shape : Array[Int32]
+  byte_size : Int32
+  quantization : Quantization
+}
+
+pub(all) enum TensorDtype {
+  Float32
+  Float16
+  Int32
+  UInt8
+  Int8
+  Int64
+}
+
+#external
+pub type TfLiteInterpreterRaw
+
+#external
+pub type TfLiteModelRaw
+
+#external
+pub type TfLiteOptionsRaw
+
+#external
+pub type TfLiteTensorRaw
+
+// Type aliases
+pub type StatusCode = Int32
+
+pub type TensorIndex = Int32
+
+// Traits
+pub(open) trait InferenceRuntime {
+  fn invoke(Self) -> Unit raise TfLiteError
+  fn output_count(Self) -> Int32
+}

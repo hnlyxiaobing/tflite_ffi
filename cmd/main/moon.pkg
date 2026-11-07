@@ -1,0 +1,5 @@
+// import {
+//   "hnlyxiaobing/tflite_ffi" @lib,
+// }
+
+pkgtype(kind: "executable")
