@@ -4,3 +4,12 @@ target/
 target
 .mooncakes/
 .moonagent/
+# WP-1 tflite_ffi stub/real 双路径（2026-11-08，契约 §3）：真实库/模型/本地产物零入库
+.local/
+third_party/
+models/
+*.dll
+*.so
+*.dylib
+*.tflite
+**/libtensorflowlite_c*

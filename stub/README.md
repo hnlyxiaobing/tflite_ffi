@@ -1,9 +1,17 @@
 # stub/ — 桌面确定性 C stub 运行时（CI 默认后端）
 
+> **WP-1 双路径改名（2026-11-08）**：契约 §3「仅内部符号改名」——本文件的
+> 17 个 shim 实现改名为 `mb_tfl_stub_impl_*`，4 个私有符号改名为
+> `mb_tfl_stub_impl_{model,options,interp}_alive` / `mb_tfl_stub_impl_tensor_meta`；
+> **确定性语义零改动**。`mb_tfl_*` 与 `tflite_ffi_private_*` 的对外导出现由
+> `native/mb_tfl_dispatch.c` 统一承担（stub/real 双路径路由，见 DESIGN.md §14）。
+
 `mb_tfl_stub.c` 提供 API.md 所列 **17 个 `mb_tfl_*` shim** 的确定性模拟实现
 （R2 冻结前 P0：shim 在 MoonBit 侧已由 `pub` 收敛为**包私有**，本文件与 C 符号不变），
 使 `moon build` / `moon test` 在 Windows (MSVC) 上真实编译、链接、运行。
-`moon.pkg` 的 `native-stub` 选项把本文件链入包（含测试可执行文件）。
+`moon.pkg` 的 `native-stub` 选项把本文件链入包（含测试可执行文件）；
+WP-1 起与 `native/mb_tfl_dispatch.c`、`native/mb_tfl_real.c` 一同链入（D4 实测
+多文件列表可行）。
 
 > **桌面确定性 stub**；真实 `libtensorflowlite_c` 对接与数值对齐
 > （<1e-4 对 Python `tflite-runtime`）留待 R2。
@@ -44,3 +52,8 @@
 之间的内部 ABI，**不属于** API.md 的 17 个 `mb_tfl_*` shim（它们本就不进
 `pkg.generated.mbti`）。R2 对接真实 `c_api.h` 时映射到
 `TfLiteTensorName/Dims/Type/ByteSize/QuantizationParams` 等。
+
+> **WP-1（2026-11-08）**：上述 4 个符号在本文件内改名为
+> `mb_tfl_stub_impl_*`（语义零改动）；`tflite_ffi_private_*` 由 dispatch 层
+> 统一导出（`*_alive` = h != NULL；`tensor_meta` 按后端路由到 stub 实现或
+> real 的 `TfLiteTensor*` 映射）。

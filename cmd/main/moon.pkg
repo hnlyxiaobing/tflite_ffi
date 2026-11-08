@@ -1,5 +1,12 @@
-// import {
-//   "hnlyxiaobing/tflite_ffi" @lib,
-// }
+import {
+  "hnlyxiaobing/tflite_ffi",
+  "moonbitlang/core/async",
+  "moonbitlang/core/async/fs",
+  "moonbitlang/core/env",
+}
 
 pkgtype(kind: "executable")
+
+options(
+  "allow-experimental-packages": true,
+)

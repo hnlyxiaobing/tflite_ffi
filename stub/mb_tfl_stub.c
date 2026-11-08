@@ -426,9 +426,9 @@ static int stub_interp_allocate(stub_interp *it) {
 
 /* ================= mb_tfl_* shim（API.md 17 个，包私有） ================= */
 
-int32_t mb_tfl_capi_version(void) { return MB_TFL_STUB_CAPI_VERSION; }
+int32_t mb_tfl_stub_impl_capi_version(void) { return MB_TFL_STUB_CAPI_VERSION; }
 
-void *mb_tfl_model_create(uint8_t *model_bytes, int32_t size) {
+void *mb_tfl_stub_impl_model_create(uint8_t *model_bytes, int32_t size) {
   stub_reader r;
   stub_model *m;
   uint32_t u;
@@ -474,7 +474,7 @@ fail:
   return NULL;
 }
 
-void mb_tfl_model_delete(void *model) {
+void mb_tfl_stub_impl_model_delete(void *model) {
   stub_model *m = (stub_model *)model;
   if (m == NULL) return;
   free(m->inputs);
@@ -482,12 +482,12 @@ void mb_tfl_model_delete(void *model) {
   free(m);
 }
 
-void *mb_tfl_options_create(void) {
+void *mb_tfl_stub_impl_options_create(void) {
   stub_options *o = (stub_options *)calloc(1, sizeof(stub_options));
   return o;
 }
 
-void mb_tfl_options_set_threads(void *options, int32_t n) {
+void mb_tfl_stub_impl_options_set_threads(void *options, int32_t n) {
   stub_options *o = (stub_options *)options;
   if (o == NULL) return;
   if (n >= 1) {
@@ -496,9 +496,9 @@ void mb_tfl_options_set_threads(void *options, int32_t n) {
   }
 }
 
-void mb_tfl_options_delete(void *options) { free(options); }
+void mb_tfl_stub_impl_options_delete(void *options) { free(options); }
 
-void *mb_tfl_interpreter_create(void *model, void *options) {
+void *mb_tfl_stub_impl_interpreter_create(void *model, void *options) {
   stub_model *m = (stub_model *)model;
   stub_options *o = (stub_options *)options;
   stub_interp *it;
@@ -523,7 +523,7 @@ fail:
   return NULL;
 }
 
-void mb_tfl_interpreter_delete(void *interp) {
+void mb_tfl_stub_impl_interpreter_delete(void *interp) {
   stub_interp *it = (stub_interp *)interp;
   if (it == NULL) return;
   stub_free_bufs(it);
@@ -532,29 +532,29 @@ void mb_tfl_interpreter_delete(void *interp) {
   free(it);
 }
 
-int32_t mb_tfl_input_count(void *interp) {
+int32_t mb_tfl_stub_impl_input_count(void *interp) {
   stub_interp *it = (stub_interp *)interp;
   return it != NULL ? it->model->input_count : -1;
 }
 
-int32_t mb_tfl_output_count(void *interp) {
+int32_t mb_tfl_stub_impl_output_count(void *interp) {
   stub_interp *it = (stub_interp *)interp;
   return it != NULL ? it->model->output_count : -1;
 }
 
-void *mb_tfl_input_tensor(void *interp, int32_t index) {
+void *mb_tfl_stub_impl_input_tensor(void *interp, int32_t index) {
   stub_interp *it = (stub_interp *)interp;
   if (it == NULL || index < 0 || index >= it->model->input_count) return NULL;
   return &it->inputs[index];
 }
 
-void *mb_tfl_output_tensor(void *interp, int32_t index) {
+void *mb_tfl_stub_impl_output_tensor(void *interp, int32_t index) {
   stub_interp *it = (stub_interp *)interp;
   if (it == NULL || index < 0 || index >= it->model->output_count) return NULL;
   return &it->outputs[index];
 }
 
-int32_t mb_tfl_resize_input(void *interp, int32_t index, int32_t *dims,
+int32_t mb_tfl_stub_impl_resize_input(void *interp, int32_t index, int32_t *dims,
                             int32_t dims_len) {
   stub_interp *it = (stub_interp *)interp;
   stub_tensor *t;
@@ -580,13 +580,13 @@ int32_t mb_tfl_resize_input(void *interp, int32_t index, int32_t *dims,
   return STUB_OK;
 }
 
-int32_t mb_tfl_allocate_tensors(void *interp) {
+int32_t mb_tfl_stub_impl_allocate_tensors(void *interp) {
   stub_interp *it = (stub_interp *)interp;
   if (it == NULL) return STUB_ERR;
   return stub_interp_allocate(it) ? STUB_OK : STUB_ERR;
 }
 
-int32_t mb_tfl_tensor_copy_from(void *tensor, uint8_t *src, int32_t size) {
+int32_t mb_tfl_stub_impl_tensor_copy_from(void *tensor, uint8_t *src, int32_t size) {
   stub_tensor *t = (stub_tensor *)tensor;
   if (t == NULL || src == NULL || size < 0) return STUB_ERR;
   if (t->buf == NULL) return STUB_NOT_ALLOCATED;
@@ -595,7 +595,7 @@ int32_t mb_tfl_tensor_copy_from(void *tensor, uint8_t *src, int32_t size) {
   return STUB_OK;
 }
 
-int32_t mb_tfl_tensor_copy_to(void *tensor, uint8_t *dst, int32_t size) {
+int32_t mb_tfl_stub_impl_tensor_copy_to(void *tensor, uint8_t *dst, int32_t size) {
   stub_tensor *t = (stub_tensor *)tensor;
   if (t == NULL || dst == NULL || size < 0) return STUB_ERR;
   if (t->buf == NULL) return STUB_NOT_ALLOCATED;
@@ -604,7 +604,7 @@ int32_t mb_tfl_tensor_copy_to(void *tensor, uint8_t *dst, int32_t size) {
   return STUB_OK;
 }
 
-int32_t mb_tfl_invoke(void *interp) {
+int32_t mb_tfl_stub_impl_invoke(void *interp) {
   stub_interp *it = (stub_interp *)interp;
   int32_t j, k, n, src_elems, dst_elems;
   if (it == NULL) return STUB_ERR;
@@ -629,13 +629,13 @@ int32_t mb_tfl_invoke(void *interp) {
 
 /* ================= 私有符号（MoonBit 层内部 ABI） ================= */
 
-int32_t tflite_ffi_private_model_alive(void *h) { return h != NULL; }
+int32_t mb_tfl_stub_impl_model_alive(void *h) { return h != NULL; }
 
-int32_t tflite_ffi_private_options_alive(void *h) { return h != NULL; }
+int32_t mb_tfl_stub_impl_options_alive(void *h) { return h != NULL; }
 
-int32_t tflite_ffi_private_interp_alive(void *h) { return h != NULL; }
+int32_t mb_tfl_stub_impl_interp_alive(void *h) { return h != NULL; }
 
-int32_t tflite_ffi_private_tensor_meta(void *interp, int32_t index,
+int32_t mb_tfl_stub_impl_tensor_meta(void *interp, int32_t index,
                                        int32_t is_output, int32_t *dims,
                                        int32_t *misc, double *qscale,
                                        uint8_t *name) {

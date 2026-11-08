@@ -6,6 +6,9 @@ import {
 }
 
 // Values
+pub fn backend_info() -> String
+
+pub fn backend_name() -> String
 
 // Errors
 #derive(@debug.Debug)

@@ -123,6 +123,75 @@ tensorflowlite_c.so / c_api.h
 桌面确定性 C 实现（`native-stub`）。剩余 TODO 全部属于 R2：真实 `libtensorflowlite_c` 对接、
 数值对齐 <1e-4、上板验证。
 
+## 14. stub/real 双路径切换层（WP-1，2026-11-08）
+
+> 契约 §1 冻结机制的实现登记。C 层：`native/mb_tfl_dispatch.c`（17 个
+> `mb_tfl_*` shim + 私有 ABI + 白盒钩子的唯一导出点）· `native/mb_tfl_real.c`
+> （真实 `tensorflowlite_c` 动态加载器）· `native/mb_tfl_backend.h`（内部头）；
+> `stub/mb_tfl_stub.c` 仅内部符号改名（`mb_tfl_stub_impl_*`，确定性语义零改动）。
+> MoonBit 层：`backend.mbt`（公开 `backend_name`/`backend_info` + 5 个包私有钩子）。
+
+### 14.1 一次性解析 + 粘性路由
+
+- 进程级**一次性解析**（线程安全：Windows `SRWLOCK` / POSIX `pthread_mutex`
+  + resolved 标志；语义等价 `InitOnceExecuteOnce`/`pthread_once`，且支持白盒
+  `_tfl_backend_reset` 显式重解析——`InitOnce` 族无重置 API，锁+标志是等价
+  实现）。首次 `backend_name()`/`backend_info()`/任一 shim 调用触发解析。
+- **粘性路由**：句柄同后端创建/释放；`_tfl_backend_reset` 仅当
+  `live_handles()==0` 才允许重解析，否则返回 1（防止跨后端句柄混用）。
+- real 路径 `model_create` **包句柄信封**：dispatcher malloc 复制模型字节
+  （`TfLiteModelCreate` 不拷贝且要求 model_data 活得与解释器同久，
+  MoonBit `#borrow` 语义不破），信封随 `model_delete` 释放；options 信封记录
+  `threads_set`（`n<1` 不设 → interpreter 创建失败，与 stub 同语义）。
+
+### 14.2 失败分类与 env 契约
+
+F1=路径探测失败（不存在/非常规文件）；F2=映像无效（非 PE/必需导出符号缺失/
+`TfLiteSchemaVersion` 不兼容，兼容区间 [1,16]）；F3=加载失败（依赖缺失等
+`LoadLibrary` 返回 NULL）。`load_status` 域：`ok`（真实加载成功）| `F0`
+（未尝试真实加载，stub 模式/默认）| `F1|F2|F3`。env：`MB_TFLITE_BACKEND=
+stub|real|auto`（默认 stub；非法值=视为未设置并记 `env_invalid`）、
+`MB_TFLITE_LIB_PATH`（UTF-8 → `LoadLibraryW`，支持中文路径；未设置=标准搜索）。
+real 强制失败**不回退**（resolved=none，shim 全部显式失败）；auto 失败自动
+回退 stub 且原因入 `backend_info()`。
+
+### 14.3 `mb_tfl_capi_version` 哨兵映射（契约修订，主控 2026-11-08 裁决）
+
+正常态（stub 活跃 / real 加载成功 / auto 回退）恒返回 shim ABI 版本
+**`0x00010001`**（`expected_capi_version` 既有断言零改动；真实库版本校验在
+解析期走 `TfLiteSchemaVersion`，不符=F2）。**「real 强制且加载失败」态**返回
+负失败分类哨兵，借 `interpreter.mbt` 既有版本断言路径使 `from_bytes` 显式抛
+`LibraryNotLoaded(reason)`（该 raise 点是冻结文件零改动前提下唯一可达的
+`LibraryNotLoaded` 抬起点）：
+
+| 哨兵（`mb_tfl_capi_version` 返回值） | 失败分类 | `from_bytes` 错误 |
+|---|---|---|
+| `-1` | F1 路径探测失败 | `LibraryNotLoaded("mb_tfl_capi_version mismatch: got -1, expected 65537")` |
+| `-2` | F2 映像无效 | `LibraryNotLoaded(... got -2 ...)` |
+| `-3` | F3 加载失败 | `LibraryNotLoaded(... got -3 ...)` |
+
+分类原因的权威来源是 `backend_info()` 的 `load_status`/`reason`（场景测试
+按主控要求双断言：`LibraryNotLoaded` 抛出 + `backend_info()` 含 F 分类原因）。
+
+### 14.4 双路径语义差异登记（契约 §1 冻结）
+
+| 语义点 | stub（STF1） | real（TFLite TFL3） |
+|---|---|---|
+| 模型格式 | **STF1**（自研格式，见 stub/README.md） | **TFLite flatbuffer（TFL3）**，**不可混用** |
+| invoke 前输出清零 | **保证**（allocate 时 calloc 零初始化） | 不保证（取决于内核实现） |
+| 状态码 2（NOT_ALLOCATED） | 支持（resize 后未 allocate） | **仅 0/1**（real TfLiteStatus 非 0 一律折叠为 1） |
+| STF1 动态维（输出 dim `-1` 镜像 input 0） | 支持 | 不适用（TFL3 用 shape_signature） |
+| STF1 rescale（模型级标量 scale） | 支持 | 不适用（MUL 等算子自带权重语义） |
+| `allow_fp16` | Float16 读写软实现 + 门禁 | **仅作 Float16 门禁**（不改写内核行为） |
+| 量化参数 | 仅描述（不反量化） | 仅描述（`TfLiteTensorQuantizationParams`） |
+
+### 14.5 线程 / 平台
+
+- shim 调用线程安全（解析在锁内，解析后粘性只读）；同一 `Interpreter` 不可
+  并发 invoke（既有约束，API.md）。
+- Windows 路径：UTF-8 → UTF-16 → `LoadLibraryW`（中文路径）；POSIX 分支
+  （`dlopen`/`dlsym`）已实现但**仅据文档**（本轮未在 POSIX 实跑）。
+
 ## References
 
 `../docs/adr/ADR-0004`、`ADR-0007`、`ADR-0008` · `https://tensorflow.org/guide/versions` · `https://docs.moonbitlang.com/en/latest/language/ffi.html`

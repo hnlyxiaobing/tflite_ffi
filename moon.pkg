@@ -2,6 +2,18 @@
 //   "hnlyxiaobing/tflite_ffi" @lib,
 // }
 
+import {
+  "moonbitlang/core/async",
+  "moonbitlang/core/env",
+  "moonbitlang/core/async/fs",
+  "moonbitlang/core/encoding/utf8",
+} for "wbtest"
+
 options(
-  "native-stub": [ "stub/mb_tfl_stub.c" ],
+  "native-stub": [
+    "native/mb_tfl_dispatch.c",
+    "native/mb_tfl_real.c",
+    "stub/mb_tfl_stub.c",
+  ],
+  "allow-experimental-packages": true,
 )

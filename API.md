@@ -99,6 +99,50 @@ MoonBit **没有字段级可见性修饰符**：`pub(all) struct` 会把 `mut st
 已删除：唯一消费者是测试替身（外部实现测试随之删除），后端抽象由 `pose::PoseBackend`
 （`pub(open)`）承担，组合根适配模式不变（ADR-0004）。`Interpreter` 的公开方法零变化。
 
+## WP-1 · stub/real 双路径与后端查询 API（加法性，2026-11-08）
+
+> 契约 §2 冻结：加法性公开 API **恰两条**，快照 diff 期望恰为
+> `// Values` 下 `backend_info` / `backend_name` 两行加法；其余冻结面零变化。
+> `interpreter.mbt` / `tflite_ffi.mbt` 零改动；17 个 shim 的 C 符号由
+> `native/mb_tfl_dispatch.c` 导出（stub/real 运行时路由，见 DESIGN.md §14）。
+
+### 新增公开函数（2 条）
+
+| 签名 | 语义 |
+|---|---|
+| `pub fn backend_name() -> String` | `"stub"` \| `"real"` 稳定字面量；首次调用触发一次性解析；不抛错。`"real"` 当且仅当真实库加载成功并粘性路由到 real；其余（stub 活跃、auto 回退、real 强制失败）为 `"stub"` |
+| `pub fn backend_info() -> String` | key=value 行文本（LF/UTF-8，不抛错）：`mode`（stub\|real\|auto）、`resolved`（stub\|real\|none）、`lib_path`（UTF-8 路径，空=标准搜索）、`load_status`（ok\|F0\|F1\|F2\|F3；F0=未尝试真实加载）、`reason`（F 失败以 F 类标开头；非法 env 值含 `env_invalid`）、`tfl_version`、`schema_version` |
+
+### env 契约（契约 §1）
+
+| 变量 | 语义 |
+|---|---|
+| `MB_TFLITE_BACKEND` | `stub`（默认，确定性）\| `real`（强制真实；F1–F3 失败不回退，`from_bytes` 显式抛 `LibraryNotLoaded(reason)`）\| `auto`（优先 real，失败自动回退 stub，原因入 `backend_info()`）。非法值=视为未设置并记 `env_invalid` |
+| `MB_TFLITE_LIB_PATH` | 真实库绝对路径（UTF-8 → `LoadLibraryW`，支持中文路径）；未设置=标准搜索 |
+
+失败分类：F1=路径探测失败（不存在/非常规文件）；F2=映像无效（非 PE/必需导出
+符号缺失/`TfLiteSchemaVersion` 不兼容）；F3=加载失败（依赖缺失等
+`LoadLibrary` 返回 NULL）。
+
+### 包私有白盒钩子（不进快照，契约 §2）
+
+| MoonBit 绑定 | C 符号 | 语义 |
+|---|---|---|
+| `_tfl_backend_reset(mode, path : Bytes, path_len) -> Int32`（`#borrow(path)`） | `tflite_ffi_private_backend_reset` | mode：-1=按 env，0=stub，1=real，2=auto；返回 0=ok，1=活跃句柄拒绝，2=real 强制失败 |
+| `_tfl_backend_force_fail(code) -> Int32` | `tflite_ffi_private_backend_force_fail` | 0=清除，1\|2\|3=注入 F1\|F2\|F3（下次解析生效）；返回 0=ok，1=非法码 |
+| `_tfl_backend_live_handles() -> Int32` | `tflite_ffi_private_backend_live_handles` | 活跃句柄计数（create/delete 对） |
+| `backend_name_code() -> Int32` | `tflite_ffi_private_backend_name_code` | 0=stub 活跃，1=real 活跃，2=real 强制失败 |
+| `backend_info_bytes(dst, cap) -> Int32`（`#borrow(dst)`） | `tflite_ffi_private_backend_info_bytes` | 写 info 文本，返回字节数 |
+
+### shim 表修订（内部，无冻结面变化）
+
+17 个 `mb_tfl_*` shim 签名零改动；`stub/mb_tfl_stub.c` 的实现符号改名为
+`mb_tfl_stub_impl_*`（确定性语义零改动，契约 §3「仅内部符号改名」），由
+`native/mb_tfl_dispatch.c` 路由 stub/real。`mb_tfl_capi_version` 正常态恒返回
+shim ABI `0x00010001`（既有断言零改动）；「real 强制且加载失败」态返回负失败
+分类哨兵 -1/-2/-3（对应 F1/F2/F3），借既有版本断言让 `from_bytes` 显式抛
+`LibraryNotLoaded`——契约修订（主控 2026-11-08）裁决项，映射详见 DESIGN.md §14。
+
 ## 非目标
 
 预处理/后处理、模型下载、模型 zoo、量化决策、GPU/delegate、Extension/opaque API、`foreign_library` 导出。
