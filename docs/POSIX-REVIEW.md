@@ -1,7 +1,7 @@
 # POSIX `dlopen` 分支走查与实跑（tflite_ffi · R4，2026-11-09）
 
-> 范围：`native/mb_tfl_real.c` 的 POSIX 分支（`dlopen`/`dlsym`、`stat`/`open`/ELF
-> 头探测）与 `native/mb_tfl_dispatch.c` 的 POSIX 线程/env 分支。
+> 范围：`../native/mb_tfl_real.c` 的 POSIX 分支（`dlopen`/`dlsym`、`stat`/`open`/ELF
+> 头探测）与 `../native/mb_tfl_dispatch.c` 的 POSIX 线程/env 分支。
 >
 > **任务前提修正（如实）**：原计划「POSIX 分支无法在本机 Windows 实跑，只做设计
 > 走查」。本机装有 **WSL2 Ubuntu（Linux 6.6 x86_64，gcc 15.2）**，因此除走查外，
@@ -99,9 +99,9 @@ gcc `15.2.0`。**手工 gcc 构建**（非 moon 构建链）：
 
 ```bash
 # 1) 三个 C 翻译单元
-gcc -std=c11 -O2 -I native -c native/mb_tfl_real.c      -o /tmp/tfl_posix/real.o
-gcc -std=c11 -O2 -I native -c native/mb_tfl_dispatch.c  -o /tmp/tfl_posix/dispatch.o
-gcc -std=c11 -O2 -c stub/mb_tfl_stub.c                  -o /tmp/tfl_posix/stub.o
+gcc -std=c11 -O2 -I native -c ../native/mb_tfl_real.c      -o /tmp/tfl_posix/real.o
+gcc -std=c11 -O2 -I native -c ../native/mb_tfl_dispatch.c  -o /tmp/tfl_posix/dispatch.o
+gcc -std=c11 -O2 -c ../stub/mb_tfl_stub.c                  -o /tmp/tfl_posix/stub.o
 # 2) 测试替身（TEST DOUBLE，不是 TFLite）：完整 mock / 缺导出 / schema=99
 gcc -shared -fPIC -o /tmp/tfl_posix/mock/libtensorflowlite_c.so .local/posix/mock_tflite.c
 gcc -shared -fPIC -o /tmp/tfl_posix/partial/partial.so        .local/posix/partial_tflite.c
@@ -137,7 +137,7 @@ gcc -std=c11 -O2 -I native .local/posix/posix_smoke.c \
 ## 4. 仍未闭环（全部 `[仍需实测]`）
 
 1. **Linux CI 路径**：在 Linux runner 上安装 MoonBit 工具链，`moon test` 全量
-   （48 用例）实跑，验证 `moon.pkg` 的 `native-stub` 多文件 C 在 gcc 下的链接。
+   （48 用例）实跑，验证 `../moon.pkg` 的 `native-stub` 多文件 C 在 gcc 下的链接。
 2. **真实 `libtensorflowlite_c.so`**（非 mock）：Linux 上的加载、schema、全链路与
    数值对齐。
 3. **Android armv7/arm64**：`dlopen` 路径、页大小、NDK 工具链、JNI 包装（非本轮）。

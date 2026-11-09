@@ -1,7 +1,7 @@
 /*
  * mb_tfl_stub.c — tflite_ffi 桌面确定性 C stub 运行时（CI 默认后端）
  *
- * 【定位】API.md 所列 17 个 mb_tfl_* shim 符号（MoonBit 侧已收敛为包私有，冻结前 P0）的确定性模拟实现，
+ * 【定位】docs/API.md 所列 17 个 mb_tfl_* shim 符号（MoonBit 侧已收敛为包私有，冻结前 P0）的确定性模拟实现，
  * 使 moon build / moon test 在 Windows (MSVC) 上真实编译、链接、运行。
  * 桌面确定性 stub；真实 libtensorflowlite_c 对接与数值对齐
  * （<1e-4 对 Python tflite-runtime）留待 R2。
@@ -44,7 +44,7 @@
  *          2 = NOT_ALLOCATED（resize 后未 allocate_tensors）。
  *
  * 【私有符号】tflite_ffi_private_* 是本 MoonBit 层与 stub 之间的内部约定
- *  （句柄存活探测、张量元数据查询），不属于 API.md 的 17 个 mb_tfl_* shim，
+ *  （句柄存活探测、张量元数据查询），不属于 docs/API.md 的 17 个 mb_tfl_* shim，
  *  不出现在 pkg.generated.mbti；R2 对接真实 c_api.h 时映射到
  *  TfLiteTensorName / Dims / Type / ByteSize / QuantizationParams 等。
  */
@@ -424,7 +424,7 @@ static int stub_interp_allocate(stub_interp *it) {
   return 1;
 }
 
-/* ================= mb_tfl_* shim（API.md 17 个，包私有） ================= */
+/* ================= mb_tfl_* shim（docs/API.md 17 个，包私有） ================= */
 
 int32_t mb_tfl_stub_impl_capi_version(void) { return MB_TFL_STUB_CAPI_VERSION; }
 

@@ -81,7 +81,7 @@ real 侧断言代码已就绪 `golden real*`，待真实库就位实跑）；登
 ## 4. SKIPPED 语义（exit 78 ≠ 通过）
 
 > **2026-11-09 实跑补充（R4）**：win-x64 真实库已取得（`.local/tflite/win-x64/`，
-> SHA-256 与 PROVENANCE 见 `GAPS.md`），`moon test --include-skipped -f "golden real*"`
+> SHA-256 与 PROVENANCE 见 `docs/GAPS.md`），`moon test --include-skipped -f "golden real*"`
 > 实跑 **2/2 通过**（首行 `backend_name()=="real"` 断言生效，冻结容差内数值对齐）。
 > 本文其它处「待真实库就位实跑」的措辞指 2026-11-08 登记时状态；**无库环境的
 > SKIPPED 语义不变**（仍不计通过）。
@@ -96,7 +96,7 @@ real 侧断言代码已就绪 `golden real*`，待真实库就位实跑）；登
   类 SKIPPED 不计通过；取得真实库后
   `moon test --include-skipped -f "golden real*"` 复测 `[仍需实测]`。
 
-## 5. 红线（重申，见 `DECISIONS.md` §3）
+## 5. 红线（重申，见 `docs/DECISIONS.md` §3）
 
 - 真实 `libtensorflowlite_c`（.so/.dll/.dylib）、真实第三方模型**禁入库**（含本目录）；
   唯一允许 = 本地链接（MB_TFLITE_LIB_PATH / `.local/`）+ SHA-256 记录。

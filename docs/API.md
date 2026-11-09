@@ -1,7 +1,7 @@
 # tflite_ffi · 公开 API（API.md）
 
-> 与 `pkg.generated.mbti` 快照一致（快照由 `moon check` / `moon build` 自动同步；**未手工编辑快照**，快照审阅由维护流程统一执行）。
-> 状态（API 冻结前 P0 整改轮，2026-11-07）：**全部函数为真实实现**（无 `declare` 存根、无 `0068`）；`extern "C"` shim 由 `stub/mb_tfl_stub.c`（`native-stub`，CI 默认后端）提供，`moon check --deny-warn` / `moon build` / `moon test` / `moon fmt --check` 全绿。
+> 与 `../pkg.generated.mbti` 快照一致（快照由 `moon check` / `moon build` 自动同步；**未手工编辑快照**，快照审阅由维护流程统一执行）。
+> 状态（API 冻结前 P0 整改轮，2026-11-07）：**全部函数为真实实现**（无 `declare` 存根、无 `0068`）；`extern "C"` shim 由 `../stub/mb_tfl_stub.c`（`native-stub`，CI 默认后端）提供，`moon check --deny-warn` / `moon build` / `moon test` / `moon fmt --check` 全绿。
 > `preferred_target = "native"`。错误传播统一 `raise TfLiteError`。
 
 ## 外部句柄（`#external` = C `void*`，MoonBit 不引用计数，永不跨模块传递）
@@ -16,8 +16,8 @@
 ## 外部 C shim 声明（**17 个**；包私有实现 ABI，非公共 API）
 
 > **冻结前 P0 · 决策 6**：17 个 `mb_tfl_*` shim 的可见性由 `pub` 收紧为**包私有**，
-> 因此**不再出现在 `moon info` / `pkg.generated.mbti` 快照**中；C 符号名、签名与
-> `stub/mb_tfl_stub.c` 实现零改动，包内 `interpreter.mbt` 的调用点零改动
+> 因此**不再出现在 `moon info` / `../pkg.generated.mbti` 快照**中；C 符号名、签名与
+> `../stub/mb_tfl_stub.c` 实现零改动，包内 `../interpreter.mbt` 的调用点零改动
 > （仅白盒测试的 2 个调用点随绑定名同步更新，见下）。
 > **决策 9（数量修正）**：原文档写 15，实际为 **17**——原文把 `input_count`/`output_count`、
 > `input_tensor`/`output_tensor` 各合并成一行，15 行其实对应 17 个符号；本表已拆为一行一符号。
@@ -49,7 +49,7 @@
 > （C 符号字符串与签名始终零改动）。历史白盒测试的直调点同步改名。
 >
 > 另有 4 个**私有内部 ABI** 符号（`tflite_ffi_private_{model,options,interp}_alive`、
-> `tflite_ffi_private_tensor_meta`，声明于 `interpreter.mbt`），本就不属于公开面，未做改动。
+> `tflite_ffi_private_tensor_meta`，声明于 `../interpreter.mbt`），本就不属于公开面，未做改动。
 
 > **无回调**：推理是同步调用，故不使用 `FuncRef` / `#owned`，规避跨线程问题。
 
@@ -65,7 +65,7 @@
 
 | 项 | 现状（源码） | 追认说明 |
 |---|---|---|
-| `TfLiteError` 为 `pub(all) suberror` | `tflite_ffi.mbt`：`#derive(Debug)` + `pub(all) suberror TfLiteError` | 包外可构造/匹配全部错误构造；13 个构造全部公开 |
+| `TfLiteError` 为 `pub(all) suberror` | `../tflite_ffi.mbt`：`#derive(Debug)` + `pub(all) suberror TfLiteError` | 包外可构造/匹配全部错误构造；13 个构造全部公开 |
 | `TfLiteError::NullHandle` 构造器公开 | `pub(all)` 使其随错误类型整体公开（快照含 `NullHandle(String)`） | 测试与包外适配器可匹配 `NullHandle(_)` |
 | `TensorDtype::Int64` 分支 | `pub(all) enum TensorDtype` 含 `Int64`；`dtype_of_code(5) => Int64` | 白盒 `wb dtype_of_code maps all supported codes` 覆盖 |
 
@@ -103,8 +103,8 @@ MoonBit **没有字段级可见性修饰符**：`pub(all) struct` 会把 `mut st
 
 > 双路径机制冻结（`DECISIONS.md` §2）：加法性公开 API **恰两条**，快照 diff 期望恰为
 > `// Values` 下 `backend_info` / `backend_name` 两行加法；其余冻结面零变化。
-> `interpreter.mbt` / `tflite_ffi.mbt` 零改动；17 个 shim 的 C 符号由
-> `native/mb_tfl_dispatch.c` 导出（stub/real 运行时路由，见 DESIGN.md §14）。
+> `../interpreter.mbt` / `../tflite_ffi.mbt` 零改动；17 个 shim 的 C 符号由
+> `../native/mb_tfl_dispatch.c` 导出（stub/real 运行时路由，见 DESIGN.md §14）。
 
 ### 新增公开函数（2 条）
 
@@ -136,9 +136,9 @@ MoonBit **没有字段级可见性修饰符**：`pub(all) struct` 会把 `mut st
 
 ### shim 表修订（内部，无冻结面变化）
 
-17 个 `mb_tfl_*` shim 签名零改动；`stub/mb_tfl_stub.c` 的实现符号改名为
+17 个 `mb_tfl_*` shim 签名零改动；`../stub/mb_tfl_stub.c` 的实现符号改名为
 `mb_tfl_stub_impl_*`（确定性语义零改动，「仅内部符号改名」约定），由
-`native/mb_tfl_dispatch.c` 路由 stub/real。`mb_tfl_capi_version` 正常态恒返回
+`../native/mb_tfl_dispatch.c` 路由 stub/real。`mb_tfl_capi_version` 正常态恒返回
 shim ABI `0x00010001`（既有断言零改动）；「real 强制且加载失败」态返回负失败
 分类哨兵 -1/-2/-3（对应 F1/F2/F3），借既有版本断言让 `from_bytes` 显式抛
 `LibraryNotLoaded`——机制修订（2026-11-08 裁决）项，映射详见 DESIGN.md §14
@@ -177,11 +177,11 @@ allocate 幂等。此前 `from_bytes` 未调用 allocate，real 路径首次 `se
 `golden real*` 2/2 与 CLI `--backend real` 全链路实跑通过（证据见 `GAPS.md`）。
 `allocate_tensors` 公开方法仍可用于 resize 后的重新分配。
 
-### API-CHANGELOG 条目文本（根仓库 `API-CHANGELOG.md` 由主控维护，本模块只提供文本）
+### API-CHANGELOG 条目文本（根仓库 `../../API-CHANGELOG.md` 由主控维护，本模块只提供文本）
 
 > 类别 `加法性追认`｜`tflite_ffi`：新增 `Interpreter::resize_input` 与
 > `Interpreter::allocate_tensors`（动态形状；既有公开签名零变化；错误模型零变化；
-> `pkg.generated.mbti` 快照新增两行，随源码同一提交）。
+> `../pkg.generated.mbti` 快照新增两行，随源码同一提交）。
 
 ## 非目标
 
@@ -189,13 +189,13 @@ allocate 幂等。此前 `from_bytes` 未调用 allocate，real 路径首次 `se
 
 ## 门禁与状态（P0 整改轮实跑）
 
-在 `tflite_ffi/` 依次实跑，全部 exit 0：
+在项目根目录依次实跑，全部 exit 0：
 
 | 命令 | 结果 |
 |---|---|
 | `moon clean` | ✅ exit 0 |
 | `moon check --deny-warn` | ✅ exit 0（0 error / 0 warning，无 `0068`、无 `unused_value`） |
-| `moon build` | ✅ exit 0（链接 `stub/mb_tfl_stub.c`，无外部库） |
+| `moon build` | ✅ exit 0（链接 `../stub/mb_tfl_stub.c`，无外部库） |
 | `moon test` | ✅ exit 0，R4 实跑 **49 tests 全过**（黑盒 + 白盒；含 resize/allocate 8 个错误路径用例、Q10 6 个算子矩阵用例与 1 个 resize 白盒错误路径用例） |
 | `moon fmt --check` | ✅ exit 0 |
 

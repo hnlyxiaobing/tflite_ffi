@@ -4,7 +4,7 @@
 > 契约与决策记录（属作者本地开发管理记录，不随本仓库发布）；此处为**自足版本**，
 > 仓库内其它文档引用决策时一律指向本文件，不再指向任何仓库外文件。
 > 各节日期为决策定案日期。许可事实与证据见 `LICENSE-AUDIT-Q4.md`；
-> 数值黄金与容差口径见 `tests/fixtures/golden/ASSETS.md` / `tests/fixtures/micro/ASSETS.md`。
+> 数值黄金与容差口径见 `../tests/fixtures/golden/ASSETS.md` / `../tests/fixtures/micro/ASSETS.md`。
 
 ---
 
@@ -60,13 +60,13 @@ tensor / invoke 及张量描述），**不声明 Extension / opaque / delegate /
 
 **决策（机制契约）**。
 
-- **切换层**：17 个 `mb_tfl_*` C 符号由 `native/mb_tfl_dispatch.c` 统一导出，
+- **切换层**：17 个 `mb_tfl_*` C 符号由 `../native/mb_tfl_dispatch.c` 统一导出，
   进程级**一次性解析 + 粘性路由**（Windows `SRWLOCK` / POSIX `pthread_mutex` +
   resolved 标志，语义等价 `InitOnceExecuteOnce`/`pthread_once`，且支持白盒
   显式重解析）：
   - real = 运行时 `LoadLibraryW`/`GetProcAddress`（POSIX：`dlopen`/`dlsym`）
     动态加载 `tensorflowlite_c.dll` / `libtensorflowlite_c.so`；
-  - stub = 编译进二进制的确定性实现（`stub/mb_tfl_stub.c`，内部符号改名
+  - stub = 编译进二进制的确定性实现（`../stub/mb_tfl_stub.c`，内部符号改名
     `mb_tfl_stub_impl_*`，确定性语义零改动）。
   - **粘性路由**：句柄同后端创建/释放；白盒 `_tfl_backend_reset` 仅当
     `live_handles()==0` 才允许重解析，否则返回 1（防跨后端句柄混用）。
@@ -92,7 +92,7 @@ tensor / invoke 及张量描述），**不声明 Extension / opaque / delegate /
   （stub 活跃 / real 加载成功 / auto 回退）恒返回 shim ABI 版本
   **`0x00010001`**（既有版本断言零改动；真实库版本校验在解析期走
   `TfLiteSchemaVersion`，不符 = F2）；**「real 强制且加载失败」态**返回负失败
-  分类哨兵，借 `interpreter.mbt` 既有版本断言路径使 `from_bytes` 显式抛
+  分类哨兵，借 `../interpreter.mbt` 既有版本断言路径使 `from_bytes` 显式抛
   `LibraryNotLoaded`（该 raise 点是冻结文件零改动前提下唯一可达的抬起点）：
 
   | 哨兵（返回值） | 失败分类 | `from_bytes` 错误 |
@@ -117,16 +117,16 @@ tensor / invoke 及张量描述），**不声明 Extension / opaque / delegate /
   `force_fail(1|2|3)`。auto 下断言进程存活、`backend_name()=="stub"`、STF1
   可用、`backend_info()` 含分类原因；real 下双断言显式报错。
 - **真实库获取链（D2，fail-closed）**：① 本地探测（`MB_TFLITE_LIB_PATH` →
-  `.local/tflite/<platform>/` 缓存 → Android SDK → Gradle 缓存）→ ② 官方
+  `../.local/tflite/<platform>/` 缓存 → Android SDK → Gradle 缓存）→ ② 官方
   预编译（仅当存在**可验证官方渠道**；无则跳过，**禁止第三方构建/镜像**）→
   ③ 官方源码最小构建（tensorflow 官方 tag 钉版、CMake `tensorflowlite_c` 目标、
   MSVC，限时约 40 分钟，超时/失败→④）→ ④ **fail-closed 缺口登记**（`GAPS.md`
   登记原因与证据 + 接线完备 + 获取脚本保留，stub 为唯一运行路径；「未获取」
-  必须显式呈现，**不得记成通过**）。获取脚本 `tools/get-tflite.ps1` 退出码：
+  必须显式呈现，**不得记成通过**）。获取脚本 `../tools/get-tflite.ps1` 退出码：
   0=就绪 / 2=参数错 / 3=fail-closed 未获取 / 4=哈希或导出符号校验失败。
 - **微型模型零入库（D3）**：`micro_mul_f32.{tflite,stf1}` 由
-  `tools/gen-micro-model.ps1` 程序化生成到 gitignore 目录（`.local/models/`）
-  或临时目录；测试内嵌生成器重建字节并断言 SHA-256 == `ASSETS.md` 登记值。
+  `../tools/gen-micro-model.ps1` 程序化生成到 gitignore 目录（`../.local/models/`）
+  或临时目录；测试内嵌生成器重建字节并断言 SHA-256 == `../tests/fixtures/micro/ASSETS.md` 登记值。
 - **CLI 退出码（D6）**：0=成功 / 1=运行失败（模型解析/推理/real 强制不可用）/
   2=用法错误；后端/回退信息走 `--info` 文本，不用退出码区分。
 - **shim ↔ `c_api.h` 映射（real 路径）**：model_create→`TfLiteModelCreate`（包
@@ -144,7 +144,7 @@ tensor / invoke 及张量描述），**不声明 Extension / opaque / delegate /
 不确定性（§3）；动态加载 + 内置回退让同一二进制在有/无真实库环境都能构建、
 测试、运行；一次性解析 + 粘性路由杜绝跨后端句柄混用；`real` 强制失败不回退
 是为了让「真实生效」可被断言（回退会掩盖真实库问题）；哨兵映射是在
-「`interpreter.mbt`/`tflite_ffi.mbt` 零改动」约束下让 `from_bytes` 显式报错
+「`../interpreter.mbt`/`../tflite_ffi.mbt` 零改动」约束下让 `from_bytes` 显式报错
 可达的唯一实现语义。
 
 **后果**。正面：缺库（最可能结局）下系统以 stub 全绿 + 缺口台账显式留痕，
@@ -168,9 +168,9 @@ tensor / invoke 及张量描述），**不声明 Extension / opaque / delegate /
 - **红线**：真实 `libtensorflowlite_c` 任何形态（`.so`/`.dll`/`.dylib`）、真实
   第三方模型（MoveNet 等）**禁入库**（含 fixtures/黄金目录）；自产微型模型
   **零入库**（程序化生成，CC0/Apache-2.0 自标注，见
-  `tests/fixtures/micro/ASSETS.md`）；测试期损坏样本只写临时目录。
+  `../tests/fixtures/micro/ASSETS.md`）；测试期损坏样本只写临时目录。
 - **唯一允许形态 = 本地链接 + SHA-256 记录 + fail-closed**：经
-  `MB_TFLITE_LIB_PATH` 或 `.local/tflite/<platform>/` 本地链接；获取工具产出
+  `MB_TFLITE_LIB_PATH` 或 `../.local/tflite/<platform>/` 本地链接；获取工具产出
   `PROVENANCE.md`（URL/版本/许可/获取日期/构建方式）与 `SHA256SUMS.txt`；
   仓库只存**文本**（登记）与脚本。获取失败即 fail-closed 缺口登记（§2 D2 链
   ④），stub 为唯一运行路径。
@@ -203,7 +203,7 @@ Apache-2.0 §4 义务无触发对象；将来分发时可凭 SHA-256/PROVENANCE 
 TFLite flatbuffer。两者的语义能力不对称。
 
 **决策**。stub 路径只认自研 **STF1** 格式（`micro_mul_f32.stf1`，镜像语义，
-格式规范见 `stub/README.md`）；real 路径只认 **TFLite flatbuffer（TFL3）**
+格式规范见 `../stub/README.md`）；real 路径只认 **TFLite flatbuffer（TFL3）**
 （`micro_mul_f32.tflite`）。两格式字节不相交，**互喂 = 解析期显式失败**，
 不得静默转换或容错接受。语义差异登记（`DESIGN.md` §14.4）：invoke 前输出
 清零仅 stub 保证；状态码 2=NOT_ALLOCATED 仅 stub（real 仅 0/1）；STF1 动态维
@@ -211,16 +211,16 @@ TFLite flatbuffer。两者的语义能力不对称。
 real 仅作 Float16 门禁（不改写内核行为）；量化参数两侧均仅描述不反量化。
 STF1 仅支持标量 scale 逐元素缩放，**无法表达 MUL 权重逐元素语义**——
 `micro_mul_f32.stf1` 取 scale=1.0 恒等（格式固有边界，见
-`tests/fixtures/micro/ASSETS.md`）。
+`../tests/fixtures/micro/ASSETS.md`）。
 
 **理由**。STF1 是 stub 确定性语义的最小载体，刻意不模仿 flatbuffer；明确
 「不可混用」把格式差异暴露在解析期而非推理期，杜绝静默错误；测试镜像（同一
 算子语义的 STF1 与 TFL3 成对生成）共用测试向量 V1/V2 与冻结容差，参考输出 =
-独立解析计算（`real_golden_test.mbt` 内嵌 mini flatbuffer 解析器抽常量校验）。
+独立解析计算（`../real_golden_test.mbt` 内嵌 mini flatbuffer 解析器抽常量校验）。
 
 **后果**。双格式维护成本（生成器 + 镜像语义 + 双份测试向量）；跨后端同模型
 数值一致性（stub vs real 容差对比）**不适用**——口径为各后端对各自独立参考值
-在冻结容差内一致（数据登记见 `tests/fixtures/golden/ASSETS.md` §2/§3.1）。
+在冻结容差内一致（数据登记见 `../tests/fixtures/golden/ASSETS.md` §2/§3.1）。
 
 ---
 
@@ -231,7 +231,7 @@ STF1 仅支持标量 scale 逐元素缩放，**无法表达 MUL 权重逐元素�
 
 **决策**。
 
-- 无库环境：`real_golden_test.mbt`（用例名前缀 `golden real`，`#skip` 黑盒）
+- 无库环境：`../real_golden_test.mbt`（用例名前缀 `golden real`，`#skip` 黑盒）
   **自动 SKIPPED、显式标注、不计通过、不计失败**（`#skip` 用例不计入
   `Total tests`，MoonBit 原生机制）；分报脚本/链路以 **exit 78** 报告 SKIPPED，
   **SKIPPED(78) / `#skip` 不得写成通过**。
@@ -313,10 +313,10 @@ import 本库（否决：循环 + 绑定死）；把 trait 抽成独立第 12 �
 下游使用。语义校验（rank/负维/零维）放在 MoonBit 层，保证 stub/real 双路径的
 畸形输入都走 `TfLiteError` 而非 panic。
 
-**后果**。公开面 +2，需 `moon info` 快照随源码提交 + 根仓库 `API-CHANGELOG.md`
+**后果**。公开面 +2，需 `moon info` 快照随源码提交 + 根仓库 `../../API-CHANGELOG.md`
 加法性追认条目（该文件由主控维护，本模块只提供条目文本）。双路径语义差异
 （stub 允许 rank 变化、状态码 2 仅 stub；real 要求 rank 与模型签名一致、状态码
-折叠为 0/1）登记于 `DESIGN.md` §14.4；测试见 `resize_allocate_test.mbt`（8 个
+折叠为 0/1）登记于 `DESIGN.md` §14.4；测试见 `../resize_allocate_test.mbt`（8 个
 黑盒用例）与白盒 shim 直调用例。
 
 **真实库实跑补记（2026-11-09，R4）**：win-x64 真实库取得后，`golden real` 首次
@@ -331,5 +331,5 @@ import 本库（否决：循环 + 绑定死）；把 trait 抽成独立第 12 �
 
 开发期契约曾以 D1–D6 编号仲裁分歧，本库文档沿用该编号时含义如下（均已在
 上文展开）：D1=默认后端（§2）；D2=真实库获取链与 fail-closed（§2/§3）；
-D3=微型模型零入库（§2/§3）；D4=stub 多文件链接形态（实测为准，`moon.pkg`
+D3=微型模型零入库（§2/§3）；D4=stub 多文件链接形态（实测为准，`../moon.pkg`
 `native-stub` 列表）；D5=不公开 `select_backend`（§2）；D6=CLI 退出码（§2）。

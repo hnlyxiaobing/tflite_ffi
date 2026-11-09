@@ -443,7 +443,7 @@ fn micro_mul_f32_tflite() -> Bytes {
 ///|
 /// micro_mul_f32.stf1（STF1 镜像，stub 后端用）：与 tools/gen-micro-model.ps1
 /// 逐字节一致。scale=1.0 恒等（STF1 仅标量 scale，无法表达 MUL 权重逐元素
-/// 语义，见 DESIGN.md 双路径语义差异登记）。
+/// 语义，见 docs/DESIGN.md 双路径语义差异登记）。
 fn micro_mul_f32_stf1() -> Bytes {
   let buf : Array[Byte] = []
   fn push_u32(v : Int32) {

@@ -1,7 +1,7 @@
 ///|
 /// TensorFlow Lite / LiteRT C API 的 MoonBit FFI 契约。
 ///
-/// 本文件是：外部句柄声明、`extern "C"` shim 签名（API.md 的 17 个，包私有
+/// 本文件是：外部句柄声明、`extern "C"` shim 签名（docs/API.md 的 17 个，包私有
 /// 实现 ABI，不进入 `moon info` 快照）、中性值类型与错误模型。
 /// MoonBit 侧公开 API 的实现在 `interpreter.mbt`；
 /// 17 个 shim 的桌面确定性 C 实现在 `stub/mb_tfl_stub.c`（CI 默认后端）。
@@ -9,7 +9,7 @@
 /// 所有权总则：`#external` 句柄是 C 侧 `void*`，MoonBit 不做引用计数；
 /// 每个由 `*_create` / `*_obtain` 返回的句柄必须由对应 `*_delete` / `*_release` 释放，
 /// 且只能释放一次。`Interpreter` 是 MoonBit 侧的 RAII 包装值，用于集中记录释放责任。
-/// 平台约束：仅 `native` 目标（理由见 `DECISIONS.md` §1、`DESIGN.md` §7），Android / Linux x86-64 验证。
+/// 平台约束：仅 `native` 目标（理由见 `docs/DECISIONS.md` §1、`docs/DESIGN.md` §7），Android / Linux x86-64 验证。
 /// 许可：LiteRT C API 头文件 Apache-2.0；随包分发的 `.so` 与模型文件许可需单独审计。
 
 ///|
@@ -128,10 +128,10 @@ pub type StatusCode = Int32
 ///|
 /// （冻结前 P0 · 决策 2）原 `pub(open) trait InferenceRuntime` 已删除：
 /// 唯一消费者是测试替身，后端抽象由 `pose::PoseBackend` 承担（组合根适配，
-/// 见 `DECISIONS.md` §6），`Interpreter` 不再暴露任何 trait 接口。
+/// 见 `docs/DECISIONS.md` §6），`Interpreter` 不再暴露任何 trait 接口。
 
 ///|
-/// ---- 外部 C shim 声明（API.md 的 17 个；包私有实现 ABI）----
+/// ---- 外部 C shim 声明（docs/API.md 的 17 个；包私有实现 ABI）----
 /// 以下符号由 `stub/mb_tfl_stub.c`（`native-stub`，CI 默认后端）提供，
 /// 一对一转发到 `c_api.h` 的语义。
 /// shim 存在的意义：隔离 GObject/结构体 ABI、统一 status code、集中处理 `#borrow`/`#owned`。
@@ -210,7 +210,7 @@ extern "C" fn mb_tfl_output_tensor(
 /// （本绑定去掉历史 `_` 前缀恢复正名；C 符号 `mb_tfl_resize_input` 不变）。
 /// 语义：resize 后全部张量缓冲失效，必须再调用 `allocate_tensors` 才能
 /// copy/invoke；未 allocate 时 stub 返回状态码 2（NOT_ALLOCATED），
-/// real 路径 TfLiteStatus 非 0 一律折叠为 1（双路径差异见 DESIGN.md §14.4）。
+/// real 路径 TfLiteStatus 非 0 一律折叠为 1（双路径差异见 docs/DESIGN.md §14.4）。
 #borrow(dims)
 extern "C" fn mb_tfl_resize_input(
   interp : TfLiteInterpreterRaw,
@@ -251,4 +251,4 @@ extern "C" fn mb_tfl_invoke(interp : TfLiteInterpreterRaw) -> StatusCode = "mb_t
 ///|
 /// ---- MoonBit 侧公开 API ----
 /// `Interpreter::{from_bytes, close, set_input, output_raw, invoke, output_desc}`
-/// 的实现在 `interpreter.mbt`（签名与 API.md / `pkg.generated.mbti` 一致）。
+/// 的实现在 `interpreter.mbt`（签名与 docs/API.md / `pkg.generated.mbti` 一致）。

@@ -229,7 +229,7 @@ async fn run_model(path : String, threads : Int32) -> Int32 {
 }
 
 ///|
-/// 参数解析与主流程。env 写入必须先于任何库调用（切换约定（`DECISIONS.md` §2）：
+/// 参数解析与主流程。env 写入必须先于任何库调用（切换约定（`docs/DECISIONS.md` §2）：
 /// 切换走 MB_TFLITE_BACKEND/MB_TFLITE_LIB_PATH，`--backend`/`--lib` 是其 CLI 面）。
 async fn cmd(rest : ArrayView[String]) -> Int32 {
   let mut model_path = ""

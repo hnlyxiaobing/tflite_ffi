@@ -1,4 +1,4 @@
-﻿# get-tflite.ps1 — 真实 tensorflowlite_c 获取脚本（2026-11-08；获取链 D2，见 ../DECISIONS.md §2/§3）
+﻿# get-tflite.ps1 — 真实 tensorflowlite_c 获取脚本（2026-11-08；获取链 D2，见 ../docs/DECISIONS.md §2/§3）
 #
 # 【获取顺序（D2 冻结）】
 #   ① 本地探测：MB_TFLITE_LIB_PATH -> .local/tflite/<platform>/ 缓存
@@ -11,7 +11,7 @@
 #      tensorflow/lite/c/CMakeLists.txt（target tensorflowlite_c）、MSVC x64
 #      + vcvars64/NMake、XNNPACK=OFF（最小构建；限时约 40 分钟由调用方后台
 #      任务控制；超时/失败 -> ④）
-#   ④ fail-closed：GAPS.md 缺口登记 + 接线完备（dispatch 已支持 stub 唯一运行
+#   ④ fail-closed：docs/GAPS.md 缺口登记 + 接线完备（dispatch 已支持 stub 唯一运行
 #      路径）+ 脚本保留，exit 3
 #
 # 【接口（冻结）】
@@ -20,7 +20,7 @@
 #   默认 TargetDir = tflite_ffi/.local/tflite/<platform>/
 #   产出：库文件 + SHA256SUMS.txt + PROVENANCE.md（URL/版本/许可/获取日期
 #   2026-11-08/构建方式）。
-#   退出码：0=就绪 2=参数错 3=fail-closed 未获取（GAPS.md 追加）4=哈希或导出
+#   退出码：0=就绪 2=参数错 3=fail-closed 未获取（docs/GAPS.md 追加）4=哈希或导出
 #   符号校验失败。
 #
 # 【红线】真实库二进制禁入库：只落 .local/（gitignore）+ SHA-256 记录。
@@ -75,7 +75,7 @@ function Get-Sha256Hex([string]$path) {
 function Test-ExportSymbols([string]$path) {
   # 导出符号存在性校验：必需符号名以 NUL 结尾字节序列出现于映像
   #（PE 导出名表 / ELF dynstr 均为该形态；运行期真导出校验由 dispatch 层
-  # GetProcAddress 完成，见 DESIGN.md）。
+  # GetProcAddress 完成，见 docs/DESIGN.md）。
   $bytes = [System.IO.File]::ReadAllBytes($path)
   $text = [System.Text.Encoding]::ASCII.GetString($bytes)
   $missing = @()
@@ -112,7 +112,7 @@ function Write-Provenance([string]$targetDir, [string]$libFile, [string]$source,
 }
 
 function Register-Gap([string]$detail) {
-  $gaps = Join-Path $pkgRoot "GAPS.md"
+  $gaps = Join-Path $pkgRoot "docs/GAPS.md"
   $entry = "- [ ] $acquireDate get-tflite($Platform/$Version)：$detail（fail-closed：stub 为唯一运行路径；接线完备，脚本保留）`n"
   if (Test-Path -LiteralPath $gaps) {
     [System.IO.File]::AppendAllText($gaps, $entry, $utf8NoBom)
@@ -359,5 +359,5 @@ if ($Platform -eq "win-x64") {
 $detail = "D2 链（①本地探测 ②官方预编译 ③源码构建）均未取得可用 $libName"
 Register-Gap $detail
 Write-Output ("fail-closed: " + $detail)
-Write-Output "fail-closed: 已登记 GAPS.md；stub 为唯一运行路径（dispatch 回退接线完备）"
+Write-Output "fail-closed: 已登记 docs/GAPS.md；stub 为唯一运行路径（dispatch 回退接线完备）"
 exit 3

@@ -1,10 +1,10 @@
 ///|
-/// MoonBit 侧公开 API 的实现（API.md「MoonBit 侧公开 API」）。
+/// MoonBit 侧公开 API 的实现（docs/API.md「MoonBit 侧公开 API」）。
 /// 既有 6 个方法签名零变化；冻结前 P0 仅新增 3 个只读访问器
 /// `Interpreter::{state, input_count, output_count}`（字段收紧为包私有后的包外读取通道）。
 ///
 /// 状态机：`from_bytes` → `Ready`；`invoke` 期间 `Invoking`；`close` → `Closed`。
-/// 资源生命周期（API.md 句柄表）：
+/// 资源生命周期（docs/API.md 句柄表）：
 /// - `model`：`from_bytes` 获取，`Interpreter::close` 释放（`owns_model = true`）；
 /// - `options`：创建 interpreter 后立即由本层释放（生命周期最短）；
 /// - `interpreter`：`Interpreter::close` 释放；
@@ -16,7 +16,7 @@
 let expected_capi_version : Int32 = 0x00010001
 
 ///|
-/// 内部 ABI：句柄存活探测（`stub/` 私有符号，不属于 API.md 的 17 个
+/// 内部 ABI：句柄存活探测（`stub/` 私有符号，不属于 docs/API.md 的 17 个
 /// `mb_tfl_*` shim，不出现在 `pkg.generated.mbti`）。真实库对接时映射到空指针检查。
 extern "C" fn stub_model_alive(model : TfLiteModelRaw) -> Int32 = "tflite_ffi_private_model_alive"
 
@@ -27,7 +27,7 @@ extern "C" fn stub_options_alive(options : TfLiteOptionsRaw) -> Int32 = "tflite_
 extern "C" fn stub_interp_alive(interp : TfLiteInterpreterRaw) -> Int32 = "tflite_ffi_private_interp_alive"
 
 ///|
-/// 内部 ABI：张量元数据查询（API.md `output_desc` 的「从 shim 取元数据」）。
+/// 内部 ABI：张量元数据查询（docs/API.md `output_desc` 的「从 shim 取元数据」）。
 /// 出参布局：`dims` = [rank, d0..d7]；`misc` = [dtype, byte_size, quant_zero,
 /// name_len]；`qscale` = [量化 scale]；`name` = 名称字节（64 字节缓冲）。
 #borrow(dims, misc, qscale, name)
@@ -222,7 +222,7 @@ pub fn Interpreter::from_bytes(
   }
   mb_tfl_options_set_threads(options_h, options.thread_count)
   let interp_h = mb_tfl_interpreter_create(model_h, options_h)
-  // 释放点：创建 interpreter 后立即释放 options（API.md 句柄表）
+  // 释放点：创建 interpreter 后立即释放 options（docs/API.md 句柄表）
   mb_tfl_options_delete(options_h)
   if stub_interp_alive(interp_h) == 0 {
     raise InterpreterCreateFailed(-1)
@@ -268,7 +268,7 @@ pub fn Interpreter::from_bytes(
 
 ///|
 /// 释放全部 C 句柄并使包装值失效。close 语义（冻结前 P0 · 决策 8，与
-/// API.md / DESIGN.md / README 统一）：**不会二次释放，重复调用返回明确错误**
+/// docs/API.md / docs/DESIGN.md / README 统一）：**不会二次释放，重复调用返回明确错误**
 /// （`AlreadyClosed`）：首次调用置 `state = Closed` 并释放，其后一律 raise。
 /// 逆序释放：interpreter → model（options 已在 `from_bytes` 内释放）。
 pub fn Interpreter::close(self : Interpreter) -> Unit raise TfLiteError {
@@ -295,7 +295,7 @@ pub fn Interpreter::close(self : Interpreter) -> Unit raise TfLiteError {
 /// - **错误**：`AlreadyClosed`、`InvalidTensorIndex`、`ResizeFailed(code, detail)`
 ///   （dims 非法或后端拒绝 resize）。
 /// - **平台语义**：stub 允许改变 rank；real TFLite 要求 rank 与模型签名一致，
-///   不符时折叠为 `ResizeFailed(1, ...)`（双路径差异见 DESIGN.md §14.4）。
+///   不符时折叠为 `ResizeFailed(1, ...)`（双路径差异见 docs/DESIGN.md §14.4）。
 pub fn Interpreter::resize_input(
   self : Interpreter,
   index : TensorIndex,
@@ -396,7 +396,7 @@ pub fn Interpreter::output_raw(
 /// 执行一次同步推理（同一 `Interpreter` 不可并发）。
 /// 逻辑直接实现于本方法，本包不提供任何 trait 接口
 /// （原 `InferenceRuntime` 已于冻结前 P0 删除，决策 2）；
-/// 后端抽象由 `pose::PoseBackend` 承担，由组合根适配（DESIGN.md §3）。
+/// 后端抽象由 `pose::PoseBackend` 承担，由组合根适配（docs/DESIGN.md §3）。
 pub fn Interpreter::invoke(self : Interpreter) -> Unit raise TfLiteError {
   ensure_open(self)
   self.state = Invoking

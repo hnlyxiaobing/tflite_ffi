@@ -4,7 +4,7 @@
 // 覆盖：
 // - resize → allocate → set_input → invoke 全链路，动态输出维镜像 input 0；
 // - resize 后未 allocate 即 invoke / output_raw / set_input → 状态码 2
-//   （NOT_ALLOCATED；stub 专属语义，real 折叠为 1，见 DESIGN.md §14.4）；
+//   （NOT_ALLOCATED；stub 专属语义，real 折叠为 1，见 docs/DESIGN.md §14.4）；
 // - 尺寸不匹配（allocate 前后都按新张量字节数校验）→ BufferSizeMismatch；
 // - 负维 / 零维 / 空 rank / rank>8 → ResizeFailed(1, _)（不 panic）；
 // - 越界 index → InvalidTensorIndex；close 后调用 → AlreadyClosed；

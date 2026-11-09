@@ -27,7 +27,7 @@ Interpreter::set_input / invoke / output_raw     ← MoonBit 侧公开 API（6 �
 mb_tfl_*  extern "C" shim（17 个，包私有实现 ABI，不进 moon info 快照）
       │
       ▼
-stub/mb_tfl_stub.c（native-stub，CI 默认后端）
+../stub/mb_tfl_stub.c（native-stub，CI 默认后端）
       │  真实库对接阶段起可切换
       ▼
 tensorflowlite_c.so / c_api.h
@@ -80,7 +80,7 @@ tensorflowlite_c.so / c_api.h
 - `preferred_target = "native"`；wasm 目标下 `extern "C"` 报 E4156。
 - Windows native 需 MSVC `cl.exe`/`clang-cl.exe`，MinGW 不支持；LLVM 后端不支持 FFI。
 - native 后端**无法把 `foreign_library` 导出为可链接 `.so`** → Android 集成必须走「C stub + 宿主 NDK/CMake」。
-- 依赖：`stub/mb_tfl_stub.c` 已落地（`moon.pkg` 的 `native-stub`，**CI 默认后端**，不引入任何外部库）；
+- 依赖：`../stub/mb_tfl_stub.c` 已落地（`../moon.pkg` 的 `native-stub`，**CI 默认后端**，不引入任何外部库）；
   真实 `libtensorflowlite_c.so` 与 `link.native.cc/cc-flags/cc-link-flags`（由 `moon_abi` 生成）留待真实库对接阶段（接入方式见 `DECISIONS.md` §2）。
 
 ## 8. 外部类型 / 句柄 / 回调 / 所有权规则
@@ -88,7 +88,7 @@ tensorflowlite_c.so / c_api.h
 | 类别 | 声明 | 规则 |
 |---|---|---|
 | 外部类型 | `#external pub type TfLiteModelRaw` 等 4 个 | C 后端 `void*`；不参与 MoonBit 引用计数；**永不跨模块传递** |
-| 外部函数 | `extern "C" fn mb_tfl_* ... = "mb_tfl_*"` 共 **17 个**（**包私有**，冻结前 P0 由 `pub` 收敛；其中 `resize_input` / `allocate_tensors` 的绑定带 `_` 前缀，C 符号不变，见 API.md） | 符号由 `stub/mb_tfl_stub.c` 提供；一对一转发 `c_api.h`；统一 status code；不进 `moon info` 快照 |
+| 外部函数 | `extern "C" fn mb_tfl_* ... = "mb_tfl_*"` 共 **17 个**（**包私有**，冻结前 P0 由 `pub` 收敛；其中 `resize_input` / `allocate_tensors` 的绑定带 `_` 前缀，C 符号不变，见 API.md） | 符号由 `../stub/mb_tfl_stub.c` 提供；一对一转发 `c_api.h`；统一 status code；不进 `moon info` 快照 |
 | `#borrow` | `mb_tfl_model_create(model_bytes)`、`mb_tfl_resize_input(dims)`、`mb_tfl_tensor_copy_from(src)`、`mb_tfl_tensor_copy_to(dst)` | C 侧只读/复制或填充，不 `decref`；MoonBit 保留所有权 |
 | 回调 | **本库无回调** | 推理是同步调用，避免引入 FuncRef 与线程问题 |
 | 缓冲 | `FixedArray[Byte]` / `Bytes` + `size` | 必须校验 capacity；不足返回 `BufferSizeMismatch` |
@@ -105,10 +105,10 @@ tensorflowlite_c.so / c_api.h
 |---|---|
 | 黑盒（12） | `from_bytes → set_input → invoke → output_raw/output_desc → close` 全链路；重复 close；越界 `TensorIndex`；缓冲长度不符；fp16/量化快照；错误映射；状态机经只读访问器 `state()` 观测 |
 | 白盒（10） | status code → `TfLiteError` 映射；`NullHandle`；`ensure_open` 守卫；dtype 编码表；版本断言；`mb_tfl_resize_input` / `mb_tfl_allocate_tensors` 直调；R4 公开 `resize_input` 错误路径原子性（非法 dims 不改变形状） |
-| golden tflite（3） | 自产 TFL3 模型 SHA-256 登记 + 独立 flatbuffer 解析 + STF1 镜像 stub 数值黄金（`real_golden_test.mbt`；另 2 个 `golden real*` 需真实库） |
-| 后端场景（10） | F1/F2/F3、auto 回退、real 强制双断言、reset 守卫、env 契约（见 `backend_wbtest.mbt`） |
-| R4 动态形状（8，黑盒） | `resize_allocate_test.mbt`：resize→allocate 全链路、未 allocate 状态码 2、分配前后尺寸不匹配、负/零/空/rank>8、越界 index、close 后、rank 冲突、幂等 allocate |
-| Q10 算子矩阵（6，黑盒） | `q10_coverage_test.mbt`：TFL3 算子枚举、矩阵 real 侧 pending、stub 拒 TFL3、6 dtype、未知 dtype、STF1 无算子表（见 `Q10-OPERATOR-COVERAGE.md`） |
+| golden tflite（3） | 自产 TFL3 模型 SHA-256 登记 + 独立 flatbuffer 解析 + STF1 镜像 stub 数值黄金（`../real_golden_test.mbt`；另 2 个 `golden real*` 需真实库） |
+| 后端场景（10） | F1/F2/F3、auto 回退、real 强制双断言、reset 守卫、env 契约（见 `../backend_wbtest.mbt`） |
+| R4 动态形状（8，黑盒） | `../resize_allocate_test.mbt`：resize→allocate 全链路、未 allocate 状态码 2、分配前后尺寸不匹配、负/零/空/rank>8、越界 index、close 后、rank 冲突、幂等 allocate |
+| Q10 算子矩阵（6，黑盒） | `../q10_coverage_test.mbt`：TFL3 算子枚举、矩阵 real 侧 pending、stub 拒 TFL3、6 dtype、未知 dtype、STF1 无算子表（见 `Q10-OPERATOR-COVERAGE.md`） |
 | 真实库对接目标 | 224×224 分类模型与 Python `tflite-runtime` 逐元素误差 < 1e-4（真实库对接后） |
 | 平台 | 桌面 x86-64 先验证；上板测 armv7/arm64 与帧率预算 |
 | 门禁 | `moon clean` → `moon check --deny-warn` → `moon build` → `moon test`（49/49）→ `moon fmt --check`（R4 实跑，全部 exit 0；第 5 道快照门禁另计） |
@@ -126,20 +126,20 @@ tensorflowlite_c.so / c_api.h
 
 ## 13. 当前状态与 TODO
 
-`tflite_ffi.mbt` 含 4 个 `#external` 句柄、**17 个包私有 `extern "C"` shim 声明**
-（R4 起 resize/allocate 绑定恢复正名，见 API.md）、值类型与错误模型；`interpreter.mbt`
+`../tflite_ffi.mbt` 含 4 个 `#external` 句柄、**17 个包私有 `extern "C"` shim 声明**
+（R4 起 resize/allocate 绑定恢复正名，见 API.md）、值类型与错误模型；`../interpreter.mbt`
 实现 **8 个公开方法 + 3 个只读访问器**（R4 新增 `resize_input` / `allocate_tensors`），
-全部为真实实现（**无 `declare`、无 `TODO(实现轮)`、无 `0068`**），`stub/mb_tfl_stub.c` 提供
+全部为真实实现（**无 `declare`、无 `TODO(实现轮)`、无 `0068`**），`../stub/mb_tfl_stub.c` 提供
 桌面确定性 C 实现（`native-stub`）。剩余 TODO 全部属于真实库对接阶段：真实
 `libtensorflowlite_c` 对接、数值对齐 <1e-4、上板验证。
 
 ## 14. stub/real 双路径切换层（2026-11-08）
 
-> 双路径机制（`DECISIONS.md` §2）的实现登记。C 层：`native/mb_tfl_dispatch.c`（17 个
-> `mb_tfl_*` shim + 私有 ABI + 白盒钩子的唯一导出点）· `native/mb_tfl_real.c`
-> （真实 `tensorflowlite_c` 动态加载器）· `native/mb_tfl_backend.h`（内部头）；
-> `stub/mb_tfl_stub.c` 仅内部符号改名（`mb_tfl_stub_impl_*`，确定性语义零改动）。
-> MoonBit 层：`backend.mbt`（公开 `backend_name`/`backend_info` + 5 个包私有钩子）。
+> 双路径机制（`DECISIONS.md` §2）的实现登记。C 层：`../native/mb_tfl_dispatch.c`（17 个
+> `mb_tfl_*` shim + 私有 ABI + 白盒钩子的唯一导出点）· `../native/mb_tfl_real.c`
+> （真实 `tensorflowlite_c` 动态加载器）· `../native/mb_tfl_backend.h`（内部头）；
+> `../stub/mb_tfl_stub.c` 仅内部符号改名（`mb_tfl_stub_impl_*`，确定性语义零改动）。
+> MoonBit 层：`../backend.mbt`（公开 `backend_name`/`backend_info` + 5 个包私有钩子）。
 
 ### 14.1 一次性解析 + 粘性路由
 
@@ -170,7 +170,7 @@ real 强制失败**不回退**（resolved=none，shim 全部显式失败）；au
 正常态（stub 活跃 / real 加载成功 / auto 回退）恒返回 shim ABI 版本
 **`0x00010001`**（`expected_capi_version` 既有断言零改动；真实库版本校验在
 解析期走 `TfLiteSchemaVersion`，不符=F2）。**「real 强制且加载失败」态**返回
-负失败分类哨兵，借 `interpreter.mbt` 既有版本断言路径使 `from_bytes` 显式抛
+负失败分类哨兵，借 `../interpreter.mbt` 既有版本断言路径使 `from_bytes` 显式抛
 `LibraryNotLoaded(reason)`（该 raise 点是冻结文件零改动前提下唯一可达的
 `LibraryNotLoaded` 抬起点）：
 
@@ -187,7 +187,7 @@ real 强制失败**不回退**（resolved=none，shim 全部显式失败）；au
 
 | 语义点 | stub（STF1） | real（TFLite TFL3） |
 |---|---|---|
-| 模型格式 | **STF1**（自研格式，见 stub/README.md） | **TFLite flatbuffer（TFL3）**，**不可混用** |
+| 模型格式 | **STF1**（自研格式，见 ../stub/README.md） | **TFLite flatbuffer（TFL3）**，**不可混用** |
 | `from_bytes` 首次分配 | `interpreter_create` 内部已分配；`from_bytes` 再调 allocate 幂等 | **必需**：`TfLiteInterpreterCreate` 不分配，`from_bytes` 内显式 `AllocateTensors`（失败 → `AllocateTensorsFailed`；2026-11-09 真实库实跑修复） |
 | invoke 前输出清零 | **保证**（allocate 时 calloc 零初始化） | 不保证（取决于内核实现） |
 | 状态码 2（NOT_ALLOCATED） | 支持（resize 后未 allocate） | **仅 0/1**（real TfLiteStatus 非 0 一律折叠为 1） |

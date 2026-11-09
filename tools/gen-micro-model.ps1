@@ -6,7 +6,7 @@
 #     单 MUL(builtin=18) -> 输出 "out" f32 [1,4]。
 #   micro_mul_f32.stf1 — STF1 镜像（stub 后端用；同名同 I/O 形状；
 #     STF1 仅支持标量 scale 逐元素缩放，无法表达 MUL 权重逐元素语义，
-#     镜像取 scale=1.0，语义差异见 DESIGN.md「双路径语义差异登记」）。
+#     镜像取 scale=1.0，语义差异见 docs/DESIGN.md「双路径语义差异登记」）。
 #
 # 【发射方式】自研 flatbuffer 手工发射（无三方依赖），与
 # tflite_ffi/real_golden_test.mbt 内嵌生成器逐字节一致（测试断言

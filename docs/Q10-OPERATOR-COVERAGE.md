@@ -1,6 +1,6 @@
 # Q10 算子覆盖矩阵（tflite_ffi · R4，2026-11-09）
 
-> 对应 `docs/open-questions.md` Q10：「`TfLiteInterpreter` 相关 C API 是否覆盖所需
+> 对应 `../../docs/open-questions.md` Q10：「`TfLiteInterpreter` 相关 C API 是否覆盖所需
 > 算子 / delegate」——本轮假设「只用 CPU、不用 delegate」，最小实验是用目标
 > `.tflite` 模型在桌面跑一次 `invoke`，确认无缺失算子。
 >
@@ -19,8 +19,8 @@
 ## 1. 覆盖矩阵
 
 算子编号取自 TFLite schema `BuiltinOperator` 枚举，已对照本机官方源码克隆
-（`tensorflow v2.14.0`，`.local/src/tensorflow/tensorflow/lite/schema/schema.fbs`，
-**未入库**，红线：外部源码/二进制只落 `.local/`）逐项核对 `[已复验-本地]`。
+（`tensorflow v2.14.0`，`../.local/src/tensorflow/tensorflow/lite/schema/schema.fbs`，
+**未入库**，红线：外部源码/二进制只落 `../.local/`）逐项核对 `[已复验-本地]`。
 
 | # | 算子 | BuiltinOperator | 来源分层 | stub 侧（可验证/已登记） | real 侧（待测） |
 |---|---|---|---|---|---|
@@ -50,7 +50,7 @@
 
 ## 2. stub 侧已验证测试（本轮实跑）
 
-文件 `q10_coverage_test.mbt`（黑盒，6 个用例）：
+文件 `../q10_coverage_test.mbt`（黑盒，6 个用例）：
 
 | 用例 | 证明什么 |
 |---|---|
@@ -81,7 +81,7 @@
    `TFLITE_ENABLE_XNNPACK`）跑 `AllocateTensors` + `Invoke`；缺失算子应得到非 0
    状态并映射为 `AllocateTensorsFailed` / `InvokeFailed`，记录具体算子名与状态码。
 3. **数值对齐**：真实库输出 vs 独立参考实现容差
-   `|got − want| ≤ 1e-6 + 1e-5 × |want|`（f64 比较，见 ASSETS.md §2）；跨实现
+   `|got − want| ≤ 1e-6 + 1e-5 × |want|`（f64 比较，见 `../tests/fixtures/golden/ASSETS.md` §2）；跨实现
    目标另登记 <1e-4 vs Python `tflite-runtime`。
 4. **delegate**：本轮非目标（ADR-0008 Decision 1 只绑稳定 C API、只用 CPU）；
    若未来启用 delegate，Q10 需重开并单独建矩阵。
@@ -90,7 +90,7 @@
 
 ## 4. 闭环判据（Q10 可关闭的条件）
 
-- 真实库就位（`PROVENANCE.md` + `SHA256SUMS.txt`，本地 `.local/tflite/win-x64/`）；
+- 真实库就位（`PROVENANCE.md` + `SHA256SUMS.txt`，本地 `../.local/tflite/win-x64/`）；
 - 目标模型在本地解析出真实算子集合，且矩阵更新为 `confirmed`（附证据）；
 - 真实库 `AllocateTensors` + `Invoke` 成功，缺失算子集合为空；
 - 数值对齐测试通过（容差冻结口径，不得放宽）；
@@ -98,9 +98,9 @@
 
 ## 5. 关联
 
-- `docs/open-questions.md` Q10（唯一跟踪点，本轮不改根仓库文档，结论由主控汇总）
-- `docs/adr/ADR-0008-inference-backend-selection.md`（只绑稳定 C API、CPU-only）
-- `docs/adr/ADR-0011-tflite-real-integration-and-licensing.md`（STF1/TFL3 不可混用、
+- `../../docs/open-questions.md` Q10（唯一跟踪点，本轮不改根仓库文档，结论由主控汇总）
+- `../../docs/adr/ADR-0008-inference-backend-selection.md`（只绑稳定 C API、CPU-only）
+- `../../docs/adr/ADR-0011-tflite-real-integration-and-licensing.md`（STF1/TFL3 不可混用、
   真实库/模型禁入库、fail-closed）
-- `tests/fixtures/golden/ASSETS.md`（数值容差与自产模型哈希）
+- `../tests/fixtures/golden/ASSETS.md`（数值容差与自产模型哈希）
 - `GAPS.md`（真实库缺口台账）

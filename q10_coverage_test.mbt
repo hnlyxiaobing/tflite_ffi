@@ -11,7 +11,7 @@
 //   矩阵所需 6 种 dtype；未知 dtype / 尾随算子字节一律 fail-closed。
 // - **待实测（real 侧）**：目标模型（MoveNet/BlazePose）的真实算子集合、真实
 //   库内核注册表是否齐全、缺失算子时的 invoke 行为——全部标 pending_real，
-//   矩阵文档 `Q10-OPERATOR-COVERAGE.md` 同步登记 [仍需实测]。
+//   矩阵文档 `docs/Q10-OPERATOR-COVERAGE.md` 同步登记 [仍需实测]。
 //
 // 算子编号来源：TFLite schema `builtin_ops.h` / `schema.fbs` 的
 // BuiltinOperator 枚举 [仅据文档]；本文件只断言本仓库实际发射/枚举到的编号，
@@ -29,7 +29,7 @@ struct Q10Row {
 }
 
 ///|
-/// Q10 覆盖矩阵（文档 `Q10-OPERATOR-COVERAGE.md` 的机器可读镜像）。
+/// Q10 覆盖矩阵（文档 `docs/Q10-OPERATOR-COVERAGE.md` 的机器可读镜像）。
 /// `source`：`micro_golden` = 本仓库自产 TFL3 黄金模型实际发射的算子；
 /// `movenet_candidate` = 目标模型候选算子（公开模型结构描述，**未经真实模型
 /// flatbuffer 解析确认**，故 real 侧一律 pending_real）。

@@ -1,12 +1,12 @@
 # stub/ — 桌面确定性 C stub 运行时（CI 默认后端）
 
-> **双路径改名（2026-11-08）**：「仅内部符号改名」（`../DECISIONS.md` §2）——本文件的
+> **双路径改名（2026-11-08）**：「仅内部符号改名」（`../docs/DECISIONS.md` §2）——本文件的
 > 17 个 shim 实现改名为 `mb_tfl_stub_impl_*`，4 个私有符号改名为
 > `mb_tfl_stub_impl_{model,options,interp}_alive` / `mb_tfl_stub_impl_tensor_meta`；
 > **确定性语义零改动**。`mb_tfl_*` 与 `tflite_ffi_private_*` 的对外导出现由
-> `native/mb_tfl_dispatch.c` 统一承担（stub/real 双路径路由，见 `../DESIGN.md` §14）。
+> `native/mb_tfl_dispatch.c` 统一承担（stub/real 双路径路由，见 `../docs/DESIGN.md` §14）。
 
-`mb_tfl_stub.c` 提供 API.md 所列 **17 个 `mb_tfl_*` shim** 的确定性模拟实现
+`mb_tfl_stub.c` 提供 docs/API.md 所列 **17 个 `mb_tfl_*` shim** 的确定性模拟实现
 （冻结前 P0 整改：shim 在 MoonBit 侧已由 `pub` 收敛为**包私有**，本文件与 C 符号不变），
 使 `moon build` / `moon test` 在 Windows (MSVC) 上真实编译、链接、运行。
 `moon.pkg` 的 `native-stub` 选项把本文件链入包（含测试可执行文件）；
@@ -49,7 +49,7 @@
 
 `tflite_ffi_private_{model,options,interp}_alive`（句柄存活探测）与
 `tflite_ffi_private_tensor_meta`（张量元数据查询）是 MoonBit 层与本 stub
-之间的内部 ABI，**不属于** API.md 的 17 个 `mb_tfl_*` shim（它们本就不进
+之间的内部 ABI，**不属于** docs/API.md 的 17 个 `mb_tfl_*` shim（它们本就不进
 `pkg.generated.mbti`）。真实后端对接时映射到
 `TfLiteTensorName/Dims/Type/ByteSize/QuantizationParams` 等。
 

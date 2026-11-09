@@ -301,7 +301,7 @@ static void ensure_resolved(void) {
   MB_TFL_UNLOCK();
 }
 
-/* ================= 17 个 shim（API.md） ================= */
+/* ================= 17 个 shim（docs/API.md） ================= */
 
 int32_t mb_tfl_capi_version(void) {
   ensure_resolved();
@@ -520,7 +520,7 @@ int32_t mb_tfl_resize_input(void *interp, int32_t index, int32_t *dims,
     st = g_state.api.TfLiteInterpreterResizeInputTensor(interp, index,
                                                         (const int *)dims,
                                                         dims_len);
-    /* real 仅 0/1（状态码 2 = NOT_ALLOCATED 仅 stub，见 DESIGN.md） */
+    /* real 仅 0/1（状态码 2 = NOT_ALLOCATED 仅 stub，见 docs/DESIGN.md） */
     return st == 0 ? 0 : 1;
   }
   if (g_state.resolved == MB_TFL_NAME_STUB) {

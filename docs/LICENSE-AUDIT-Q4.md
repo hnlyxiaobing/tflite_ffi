@@ -22,11 +22,11 @@
 
 1. 真实 `libtensorflowlite_c` 任何形态（`.so`/`.dll`/`.dylib`）、真实第三方模型
    （MoveNet 等）**禁入库**（含 fixtures/黄金目录）；自产微型模型**零入库**
-   （程序化生成到 gitignore 目录，SHA-256 登记于 `tests/fixtures/micro/ASSETS.md`）；
+   （程序化生成到 gitignore 目录，SHA-256 登记于 `../tests/fixtures/micro/ASSETS.md`）；
    测试期损坏样本只写临时目录。
 2. **唯一允许形态 = 本地链接 + SHA-256 记录 + fail-closed**：经
-   `MB_TFLITE_LIB_PATH` 或 `.local/tflite/<platform>/` 本地链接；获取工具
-   （`tools/get-tflite.ps1`）产出 `PROVENANCE.md`（URL/版本/许可/获取日期/构建
+   `MB_TFLITE_LIB_PATH` 或 `../.local/tflite/<platform>/` 本地链接；获取工具
+   （`../tools/get-tflite.ps1`）产出 `PROVENANCE.md`（URL/版本/许可/获取日期/构建
    方式）与 `SHA256SUMS.txt`；仓库只存文本登记（`GAPS.md` 等）与脚本。获取
    失败即 fail-closed 缺口登记（`GAPS.md` + 接线完备 + 脚本保留，stub 为唯一
    运行路径），「未获取」不得记成通过（详见 `DECISIONS.md` §2/§3）。
@@ -43,7 +43,7 @@
   **首行断言 `backend_name()=="real"`**，不满足即 fail，**绝不静默跳过**；
   三场景测试（`backend scenario*`）不依赖真实库、任何环境全绿。
 - 数值黄金期望与容差（`|got−want| ≤ 1e-6 + 1e-5×|want|`）冻结登记于
-  `tests/fixtures/golden/ASSETS.md`，`moon test`（golden tflite/real 类）即回归。
+  `../tests/fixtures/golden/ASSETS.md`，`moon test`（golden tflite/real 类）即回归。
 
 **Q4 状态（收敛口径）**：
 
@@ -95,7 +95,7 @@
 |---|---|---|
 | LiteRT 承接 TFLite 血缘 | `https://raw.githubusercontent.com/google-ai-edge/LiteRT/main/README.md`："**LiteRT continues the legacy of TensorFlow Lite** as the trusted, high-performance runtime for on-device AI." | `[仅据文档]` |
 | TFLite 老命名进入维护模式 | 同上："**TensorFlow Lite packages and `tensorflow/lite/` are in maintenance mode** and only receive critical security and stability updates."（另见其 "AI Coding Directives" 建议新代码用 Compiled Model API） | `[仅据文档]` |
-| 许可随更名不变 | 同上文末："LiteRT is licensed under the [Apache-2.0 License](LICENSE)."（LICENSE 即 §1.1 纯 Apache-2.0） | `[仅据文档]` |
+| 许可随更名不变 | 同上文末："LiteRT is licensed under the `[Apache-2.0 License](LICENSE)`."（LICENSE 即 §1.1 纯 Apache-2.0） | `[仅据文档]` |
 | 产物坐标沿革 | Maven Central `org.tensorflow:tensorflow-lite`（AAR，见 §1.4）→ Google Maven `com.google.ai.edge.litert:litert`（`https://dl.google.com/dl/android/maven2/com/google/ai/edge/litert/litert/maven-metadata.xml`：`<latest>2.3.2</latest>`、版本序列 `0.1.0 … 2.3.2`、`<lastUpdated>20261026204500</lastUpdated>`） | `[仅据文档]` |
 | **更名公告的精确日期** | ai.google.dev / developers.googleblog 本轮抓取失败（网络不可达） | `[仍需实测]` |
 
@@ -167,7 +167,7 @@
 
 ### 3.2 「本地链接 + SHA-256」形态的合规性论证
 
-形态（`DECISIONS.md` §2/§3）：库/模型由开发者**本地获取**（`MB_TFLITE_LIB_PATH` → `.local/tflite/<platform>/` 缓存 → SDK/Gradle 缓存探测），仓库只存**文本**（`PROVENANCE.md`/`SHA256SUMS.txt`/`GAPS.md`）与脚本（`tools/get-tflite.ps1`、`tools/gen-micro-model.ps1`）。
+形态（`DECISIONS.md` §2/§3）：库/模型由开发者**本地获取**（`MB_TFLITE_LIB_PATH` → `../.local/tflite/<platform>/` 缓存 → SDK/Gradle 缓存探测），仓库只存**文本**（`PROVENANCE.md`/`SHA256SUMS.txt`/`GAPS.md`）与脚本（`../tools/get-tflite.ps1`、`../tools/gen-micro-model.ps1`）。
 
 | # | 论点 | 结论 | 等级 |
 |---|---|---|---|

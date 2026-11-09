@@ -1,5 +1,5 @@
 ///|
-/// tflite_ffi stub/real 双路径后端查询（2026-11-08，加法性公开 API；机制见 `DECISIONS.md` §2）。
+/// tflite_ffi stub/real 双路径后端查询（2026-11-08，加法性公开 API；机制见 `docs/DECISIONS.md` §2）。
 ///
 /// 本文件是冻结的两条加法性公开 API（`backend_name` / `backend_info`）
 /// 与 5 个包私有白盒钩子的 MoonBit 侧绑定；C 实现在
@@ -7,7 +7,7 @@
 /// 既有公开面（`pkg.generated.mbti` 冻结区）零变化；新增快照恰为
 /// `backend_info` / `backend_name` 两行。
 ///
-/// 后端解析语义（`DECISIONS.md` §2）：进程级一次性解析 + 粘性路由；首次调用
+/// 后端解析语义（`docs/DECISIONS.md` §2）：进程级一次性解析 + 粘性路由；首次调用
 /// `backend_name()` / `backend_info()`（或任一 `mb_tfl_*` shim）触发解析；
 /// env 契约 `MB_TFLITE_BACKEND=stub|real|auto`（默认 stub，非法值=视为未设置
 /// 并记 `env_invalid`）与 `MB_TFLITE_LIB_PATH=<绝对路径>`（UTF-8，支持中文
