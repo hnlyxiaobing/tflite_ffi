@@ -1,6 +1,6 @@
 // Q10 算子覆盖（R4，2026-11-09）：矩阵的 stub 侧可验证部分 + real 侧待测登记。
 //
-// Q10 原文（docs/open-questions.md）：「TfLiteInterpreter 相关 C API 是否覆盖
+// 本测试覆盖的问题（Q10）：「TfLiteInterpreter 相关 C API 是否覆盖
 // 所需算子 / delegate」——只用 CPU、不用 delegate 是本轮假设；最小实验是用
 // 目标 .tflite 模型在桌面跑一次 invoke，确认无缺失算子。
 //

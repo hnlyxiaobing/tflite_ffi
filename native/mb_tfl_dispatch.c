@@ -1,5 +1,5 @@
 /*
- * mb_tfl_dispatch.c — tflite_ffi stub/real 双路径 C dispatch（WP-1, 2026-11-08）
+ * mb_tfl_dispatch.c — tflite_ffi stub/real 双路径 C dispatch（2026-11-08）
  *
  * 【定位】契约 §1「切换层」：17 个 mb_tfl_* shim（MoonBit 侧包私有 ABI）与
  * 5 个白盒钩子的唯一导出点。进程级一次性解析 + 粘性路由：

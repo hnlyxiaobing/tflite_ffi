@@ -1,6 +1,6 @@
 # tests/fixtures/micro/ — 自产微型模型资产登记（ASSETS.md）
 
-> （2026-11-08；数据口径见 `../golden/ASSETS.md` §1，零入库红线见 `../../docs/DECISIONS.md` §3）。
+> （2026-11-08；数据口径见 `../golden/ASSETS.md` §1，零入库红线见 `../../../docs/DECISIONS.md` §3）。
 > **零入库**：`.tflite` / `.stf1` 二进制不进仓库
 > （生成到 `tflite_ffi/.local/models/` 或 `@fs.tmpdir()`，`.local/` 已被 .gitignore
 > 覆盖）。本目录只登记**生成方式 / SHA-256 / 许可**；测试内嵌生成器重建字节并

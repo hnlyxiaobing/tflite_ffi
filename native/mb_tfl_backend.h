@@ -1,5 +1,5 @@
 /*
- * mb_tfl_backend.h — tflite_ffi stub/real 双路径 dispatch 层内部头（WP-1, 2026-11-08）
+ * mb_tfl_backend.h — tflite_ffi stub/real 双路径 dispatch 层内部头（2026-11-08）
  *
  * 【定位】native/mb_tfl_dispatch.c（17 个 mb_tfl_* shim + 私有 ABI + 白盒钩子的
  * 唯一导出点）与 native/mb_tfl_real.c（真实 tensorflowlite_c 动态加载器）之间的

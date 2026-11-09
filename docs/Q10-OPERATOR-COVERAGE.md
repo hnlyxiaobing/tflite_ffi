@@ -1,6 +1,6 @@
 # Q10 算子覆盖矩阵（tflite_ffi · R4，2026-11-09）
 
-> 对应 `../../docs/open-questions.md` Q10：「`TfLiteInterpreter` 相关 C API 是否覆盖所需
+> 本文件回答的问题（Q10）：「`TfLiteInterpreter` 相关 C API 是否覆盖所需
 > 算子 / delegate」——本轮假设「只用 CPU、不用 delegate」，最小实验是用目标
 > `.tflite` 模型在桌面跑一次 `invoke`，确认无缺失算子。
 >
@@ -64,7 +64,7 @@
 **stub 侧模型的语义边界（已登记，不构成缺陷）**：STF1 是描述 + 标量缩放格式，
 没有算子表；stub 的 `invoke` 恒为「输出 j 取输入 j % input_count，前 min(src,dst)
 元素 `out[k] = scale * src[k]`」。因此 stub 能验证的是**张量描述/所有权/错误路径**，
-不能验证真实算子内核。STF1 与 TFL3 **不可混用**（ADR-0011 §3）。
+不能验证真实算子内核。STF1 与 TFL3 **不可混用**（本仓库真实库对接口径）。
 
 ## 3. real 侧待办（全部 `[仍需实测]`）
 
@@ -83,7 +83,7 @@
 3. **数值对齐**：真实库输出 vs 独立参考实现容差
    `|got − want| ≤ 1e-6 + 1e-5 × |want|`（f64 比较，见 `../tests/fixtures/golden/ASSETS.md` §2）；跨实现
    目标另登记 <1e-4 vs Python `tflite-runtime`。
-4. **delegate**：本轮非目标（ADR-0008 Decision 1 只绑稳定 C API、只用 CPU）；
+4. **delegate**：本轮非目标（只绑稳定 C API、只用 CPU）；
    若未来启用 delegate，Q10 需重开并单独建矩阵。
 5. **schema 版本**：解析期 `TfLiteSchemaVersion ∈ [1,16]` 断言已实现；真实库版本
    组合仍需实跑确认（见 GAPS.md 真实库缺口）。
@@ -96,11 +96,10 @@
 - 数值对齐测试通过（容差冻结口径，不得放宽）；
 - 以上命令、退出码、模型 SHA-256 记入 `GAPS.md`/本文件，且不把 SKIPPED 写成通过。
 
-## 5. 关联
+## 5. 结论依据与后续
 
-- `../../docs/open-questions.md` Q10（唯一跟踪点，本轮不改根仓库文档，结论由主控汇总）
-- `../../docs/adr/ADR-0008-inference-backend-selection.md`（只绑稳定 C API、CPU-only）
-- `../../docs/adr/ADR-0011-tflite-real-integration-and-licensing.md`（STF1/TFL3 不可混用、
-  真实库/模型禁入库、fail-closed）
+- 本文件是 Q10 结论的唯一权威记录，结论以本文件为准。
+- 本仓库推理后端选型：只绑稳定 C API、CPU-only；不使用 delegate。
+- 本仓库真实库对接与许可口径：STF1/TFL3 不可混用、真实库/模型禁入库、缺库 fail-closed。
 - `../tests/fixtures/golden/ASSETS.md`（数值容差与自产模型哈希）
 - `GAPS.md`（真实库缺口台账）

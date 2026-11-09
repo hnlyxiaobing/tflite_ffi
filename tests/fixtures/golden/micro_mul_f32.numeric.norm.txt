@@ -1,7 +1,7 @@
-# micro_mul_f32 数值黄金登记（WP-4 R3 · 2026-11-08 · 数据口径 = wp1-contract §4 冻结
-# + 主控裁决 2026-11-08 双后端期望显式化拆分）
+# micro_mul_f32 数值黄金登记（2026-11-08 · 数据口径 = 本仓库 golden 数值冻结口径
+# + 2026-11-08 双后端期望显式化拆分）
 # 本文件 = 手写冻结数据（登记本体，非派生生成物）；golden-diff.ps1 -Chain tflite 每次运行
-# 按后端语义**分算**独立重算并比对（参考输出 = 独立解析计算，wp1-contract §4）：
+# 按后端语义**分算**独立重算并比对（参考输出 = 独立解析计算，本仓库冻结口径）：
 #   real = f32(f64 × f64) MUL 权重期望；stub = 恒等拷贝期望（f32(in) 位型）。
 # 行格式（确定性、自描述）：
 #   TOL|<容差参数>                     容差口径（冻结文本，golden-diff 逐字校验）
@@ -10,7 +10,7 @@
 #       backend ∈ real|stub；wanthex = 期望 f32 IEEE-754 位型 hex（大写 8 位，LE 序）
 # 非 TOL/MODEL/VEC 开头的行（含本注释）由登记读取方忽略。
 #
-# 【双后端语义（2026-11-08 对表 WP-1 逐位一致 [已复核]）】
+# 【双后端语义（2026-11-08 与 real_golden_test.mbt 逐位一致 [已复核]）】
 #   real（TFL3 模型 micro_mul_f32.tflite）：MUL 权重 w=[0.5,1,2,-1]，want_i=f32(in_i×w_i)。
 #   stub（STF1 镜像 micro_mul_f32.stf1）：STF1 仅支持标量 scale 逐元素缩放（语义上限），
 #   scale=1.0 恒等语义，want_i=f32(in_i)（输出 == 输入）。
@@ -20,12 +20,12 @@
 #
 # 容差（冻结，逐元素 f32）：|got - want| <= 1e-6 + 1e-5 * |want|
 # （f64 比较；NaN=NaN bit 相等；±0 等价；Inf bit 相等）。容差超限=失败，不得放宽。
-# 适用面（裁决 2026-11-08）：仅约束**数值断言侧**（各后端运行输出对各自独立参考值）；
+# 适用面（2026-11-08 口径）：仅约束**数值断言侧**（各后端运行输出对各自独立参考值）；
 # 登记自洽重算为位型精确比较（real=MUL 重算、stub=恒等拷贝），不套容差。
 #
-# 模型本体零入库（wp1-contract D3）：micro_mul_f32.{tflite,stf1} 由
+# 模型本体零入库（本仓库零入库红线）：micro_mul_f32.{tflite,stf1} 由
 # tflite_ffi/tools/gen-micro-model.ps1 程序化生成到 gitignore 目录；模型字节
-# SHA-256 登记在 tflite_ffi/tests/fixtures/micro/ASSETS.md（WP-1 owner）。本文件只登记数值。
+# SHA-256 登记在 tflite_ffi/tests/fixtures/micro/ASSETS.md。本文件只登记数值。
 TOL|abs=1e-6|rel=1e-5|cmp=f64|nan=bit-equal|pm0=equal|inf=bit-equal
 MODEL|micro_mul_f32|op=mul|in=f32[1,4] "in"|w=f32[4] "w"|out=f32[1,4] "out"|weights=0.5,1.0,2.0,-1.0
 VEC|real|V1|in=1,2,3,4|wanthex=3F000000,40000000,40C00000,C0800000
@@ -34,14 +34,14 @@ VEC|stub|V1|in=1,2,3,4|wanthex=3F800000,40000000,40400000,40800000
 VEC|stub|V2|in=0.1,-0.3,7.77,1e3|wanthex=3DCCCCCD,BE99999A,40F8A3D7,447A0000
 # 期望值备查（f32 文本）：real V1=[0.5, 2, 6, -4]（f32 精确）、real V2=[0.05, -0.3, 15.54, -1000]
 # （逐元素 f64 乘积→f32 舍入）；stub V1/V2 = 各自输入原样（恒等）。
-# 对表登记（2026-11-08 [已复核]）：real wanthex == WP-1 real_golden_test.mbt golden_v*_mul()；
-# stub wanthex == golden_v*_in()（= WP-1 micro/ASSETS.md STF1 镜像期望），逐位一致。
+# 对表登记（2026-11-08 [已复核]）：real wanthex == real_golden_test.mbt golden_v*_mul()；
+# stub wanthex == golden_v*_in()（= micro/ASSETS.md STF1 镜像期望），逐位一致。
 #
 # stub/real 双路径（golden-diff tflite 链强制：分别报告、**不得混报**）：
 BACKEND|stub|report=separate|never-mix=real|filter=golden tflite*
 BACKEND|real|report=separate|never-mix=stub|require=backend_name()=="real"|filter=golden real*
-# real 侧用例 = real_golden_test.mbt（WP-1 owner，#skip 黑盒，wp1-contract §6 冻结前缀
+# real 侧用例 = real_golden_test.mbt（#skip 黑盒，本仓库冻结用例名前缀
 # `golden real`；moon test --include-skipped -f "golden real*"；真实运行首行断言
 # backend_name()=="real"，不满足即 fail，绝不静默跳过）。
-# stub 侧数值黄金用例前缀 `golden tflite`（WP-4/主控约定，WP-1 命名已对齐 [已复核]）。
+# stub 侧数值黄金用例前缀 `golden tflite`（命名已对齐 [已复核]）。
 SKIP-IF-NO-REAL-LIB|golden real 未执行 -> SKIPPED 显式列因 + exit 78，不计通过

@@ -93,7 +93,7 @@ tensorflowlite_c.so / c_api.h
 | 回调 | **本库无回调** | 推理是同步调用，避免引入 FuncRef 与线程问题 |
 | 缓冲 | `FixedArray[Byte]` / `Bytes` + `size` | 必须校验 capacity；不足返回 `BufferSizeMismatch` |
 
-> `#borrow` / `#owned` 是**写在函数声明之前的独立属性行**，不是参数注解；官方明确默认语义正从 `#owned` 迁移到 `#borrow`，因此本库全部显式标注（本库 FFI 标注约定，源于开发期决策记录）。
+> `#borrow` / `#owned` 是**写在函数声明之前的独立属性行**，不是参数注解；官方明确默认语义正从 `#owned` 迁移到 `#borrow`，因此本库全部显式标注（本库 FFI 标注约定）。
 
 ## 9. 可替换性与实现细节不泄漏
 

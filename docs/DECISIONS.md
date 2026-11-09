@@ -1,7 +1,6 @@
 # DECISIONS.md — tflite_ffi 设计决策记录
 
-> 本文件整合本库的长期设计决策（背景 → 决策 → 理由 → 后果），内容源自开发期的
-> 契约与决策记录（属作者本地开发管理记录，不随本仓库发布）；此处为**自足版本**，
+> 本文件记录本库的长期设计决策（背景 → 决策 → 理由 → 后果）；此处为**自足版本**，
 > 仓库内其它文档引用决策时一律指向本文件，不再指向任何仓库外文件。
 > 各节日期为决策定案日期。许可事实与证据见 `LICENSE-AUDIT-Q4.md`；
 > 数值黄金与容差口径见 `../tests/fixtures/golden/ASSETS.md` / `../tests/fixtures/micro/ASSETS.md`。
@@ -313,8 +312,7 @@ import 本库（否决：循环 + 绑定死）；把 trait 抽成独立第 12 �
 下游使用。语义校验（rank/负维/零维）放在 MoonBit 层，保证 stub/real 双路径的
 畸形输入都走 `TfLiteError` 而非 panic。
 
-**后果**。公开面 +2，需 `moon info` 快照随源码提交 + 根仓库 `../../API-CHANGELOG.md`
-加法性追认条目（该文件由主控维护，本模块只提供条目文本）。双路径语义差异
+**后果**。公开面 +2，需 `moon info` 快照随源码提交，并在本仓库 `docs/API.md` 登记加法性追认条目。双路径语义差异
 （stub 允许 rank 变化、状态码 2 仅 stub；real 要求 rank 与模型签名一致、状态码
 折叠为 0/1）登记于 `DESIGN.md` §14.4；测试见 `../resize_allocate_test.mbt`（8 个
 黑盒用例）与白盒 shim 直调用例。

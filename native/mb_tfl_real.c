@@ -1,5 +1,5 @@
 /*
- * mb_tfl_real.c — 真实 tensorflowlite_c 动态加载器（WP-1, 2026-11-08）
+ * mb_tfl_real.c — 真实 tensorflowlite_c 动态加载器（2026-11-08）
  *
  * 【定位】契约 §1「切换层」的真实路径：运行时动态加载真实
  * `tensorflowlite_c.dll`（Windows：LoadLibraryW/GetProcAddress）或

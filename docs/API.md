@@ -177,7 +177,7 @@ allocate 幂等。此前 `from_bytes` 未调用 allocate，real 路径首次 `se
 `golden real*` 2/2 与 CLI `--backend real` 全链路实跑通过（证据见 `GAPS.md`）。
 `allocate_tensors` 公开方法仍可用于 resize 后的重新分配。
 
-### API-CHANGELOG 条目文本（根仓库 `../../API-CHANGELOG.md` 由主控维护，本模块只提供文本）
+### 加法性变更登记文本（登记于本仓库 `docs/API.md`）
 
 > 类别 `加法性追认`｜`tflite_ffi`：新增 `Interpreter::resize_input` 与
 > `Interpreter::allocate_tensors`（动态形状；既有公开签名零变化；错误模型零变化；

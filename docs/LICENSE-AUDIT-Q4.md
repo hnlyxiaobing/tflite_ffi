@@ -1,6 +1,6 @@
 # LICENSE-AUDIT-Q4.md — TFLite/LiteRT 运行时与模型生态商用条款审计（Q4，网络只读）
 
-> 日期：**2026-11-08**（Q4 许可事实层审计）｜ 审计方式：**网络只读**——全程仅用 `web_fetch` 读取 LICENSE / 条款 / 托管元数据**文本**；**未下载任何 `.so` / 模型（`.tflite`/`.task`）/ frida 二进制，未把任何下载物落盘进工作区**，本文件为唯一产出 `[已复验]`。
+> 日期：**2026-11-08**（Q4 许可事实层审计）｜ 审计方式：**网络只读**——全程仅用 `web_fetch` 读取 LICENSE / 条款 / 托管元数据**文本**；**未下载任何 `.so` / 模型（`.tflite`/`.task`）/ frida 二进制**，本文件为唯一产出 `[已复验]`。
 > 证据等级（本轮口径）：网络文本审计结论一律 **`[仅据文档]`**（每条附 URL + 文本摘录 + 访问日期 **2026-11-08**）；本轮本地实测行为 `[已复验]`；法律解读一律 `[推断]`（**非法律意见**，须法务复核）；未核实处 `[仍需实测]` **如实标开放，不硬凑**。
 > 范围边界：本审计只固定「许可/条款原文事实 + 合规含义」，**不改变任何门禁与红线**（本库红线与解禁语义见 §0.1 与 `DECISIONS.md` §3，均维持原状）。
 > 关联：本文件即 Q4（模型商用条款）的事实层审计产出；Q4 状态与残余见 §0.1/§5/§6；运行时与模型的逐条证据见 §1–§4。
@@ -14,9 +14,9 @@
 | 运行时对象 | TFLite/LiteRT C API 运行时（`libtensorflowlite_c.so` / `tensorflowlite_c.dll`，稳定面 = `tensorflow/lite/c/c_api.h`） | `[仅据文档]`（下文 §1） |
 | 模型对象 | MoveNet（SinglePose/MultiPose）、BlazePose / MediaPipe Pose（Landmarker） | `[仅据文档]`（下文 §2） |
 | 红线执行 | 仅 `web_fetch` 文本读取；MoveNet Model Card **PDF** 因 content-type（`application/pdf`）被 `web_fetch` 拒绝，**未改用任何下载通道绕过**；`dl.google.com` 的 `.pom` 因 `application/octet-stream` 被拒同样未绕过 | `[已复验]` |
-| 产出物 | 仅本文件；工作区无任何新增二进制/模型 | `[已复验]` |
+| 产出物 | 仅本文件；本仓库无新增二进制/模型 | `[已复验]` |
 
-### 0.1 本库红线与解禁语义（自足陈述，源自开发期契约/决策记录）
+### 0.1 本库红线与解禁语义（自足陈述）
 
 **红线（不变）**：
 
@@ -95,7 +95,7 @@
 |---|---|---|
 | LiteRT 承接 TFLite 血缘 | `https://raw.githubusercontent.com/google-ai-edge/LiteRT/main/README.md`："**LiteRT continues the legacy of TensorFlow Lite** as the trusted, high-performance runtime for on-device AI." | `[仅据文档]` |
 | TFLite 老命名进入维护模式 | 同上："**TensorFlow Lite packages and `tensorflow/lite/` are in maintenance mode** and only receive critical security and stability updates."（另见其 "AI Coding Directives" 建议新代码用 Compiled Model API） | `[仅据文档]` |
-| 许可随更名不变 | 同上文末："LiteRT is licensed under the `[Apache-2.0 License](LICENSE)`."（LICENSE 即 §1.1 纯 Apache-2.0） | `[仅据文档]` |
+| 许可随更名不变 | 同上文末："LiteRT is licensed under the Apache-2.0 License."（原文以 Markdown 链接指向上游仓库的 LICENSE 文件，对应 §1.1 纯 Apache-2.0） | `[仅据文档]` |
 | 产物坐标沿革 | Maven Central `org.tensorflow:tensorflow-lite`（AAR，见 §1.4）→ Google Maven `com.google.ai.edge.litert:litert`（`https://dl.google.com/dl/android/maven2/com/google/ai/edge/litert/litert/maven-metadata.xml`：`<latest>2.3.2</latest>`、版本序列 `0.1.0 … 2.3.2`、`<lastUpdated>20261026204500</lastUpdated>`） | `[仅据文档]` |
 | **更名公告的精确日期** | ai.google.dev / developers.googleblog 本轮抓取失败（网络不可达） | `[仍需实测]` |
 
@@ -163,7 +163,7 @@
    Apache-2.0，红线维持不放宽（冻结口径不破坏）。
 4. 与本库红线（本文件 §0.1/§3.1）及 `DECISIONS.md` §3 的许可口径（禁入库 +
    本地链接 + SHA-256 + fail-closed）**一致，红线不变**；本文件即 Q4 事实层
-   产出（开发期决策记录指定的 Q4 审计承载文件）。
+   产出（本仓库指定的 Q4 审计承载文件）。
 
 ### 3.2 「本地链接 + SHA-256」形态的合规性论证
 
@@ -233,16 +233,16 @@
 
 ---
 
-## 6. 与既有口径的核对结果（自足陈述；外部工作区记录仅作开发期记录提及，不随本库发布）
+## 6. 与本仓库既有口径的核对结果（自足陈述）
 
 | 核对对象（口径） | 原表述 | 核对结论 | 处置 |
 |---|---|---|---|
-| Q4 开放项台账（开发期记录） | "模型卡 Apache-2.0 已核实，**范围声明未证实**" | 范围声明**文本存在性已证实**（C11）；**约束力**仍开放（O1） | 开发期台账已同步更新；本文件 §2.1/§5 为权威登记 |
-| 解禁条件（开发期路线图登记） | "Q4 闭环：…许可与随包分发条款经法务确认" 为解禁条件 | 条件本身**维持不变**；收敛状态 = 许可事实层已审计（本文件），法务确认未闭环 | 不改条件；状态以本文件 §0.1/§5 为准 |
-| TFLite 兼容性调研结论（开发期记录） | "MoveNet Model Card 为 Apache-2.0 … [待验证假设] 范围声明是否具约束力" | Apache-2.0 成立（C10）；"surveillance out of scope" 句定位到 MoveNet 卡面 Out-of-scope 节（C11） | 已按本文件 §2.1 修订口径 |
+| Q4 开放项台账（本仓库记录） | "模型卡 Apache-2.0 已核实，**范围声明未证实**" | 范围声明**文本存在性已证实**（C11）；**约束力**仍开放（O1） | 开发期台账已同步更新；本文件 §2.1/§5 为权威登记 |
+| 解禁条件（本仓库登记） | "Q4 闭环：…许可与随包分发条款经法务确认" 为解禁条件 | 条件本身**维持不变**；收敛状态 = 许可事实层已审计（本文件），法务确认未闭环 | 不改条件；状态以本文件 §0.1/§5 为准 |
+| TFLite 兼容性调研结论（本仓库记录） | "MoveNet Model Card 为 Apache-2.0 … [待验证假设] 范围声明是否具约束力" | Apache-2.0 成立（C10）；"surveillance out of scope" 句定位到 MoveNet 卡面 Out-of-scope 节（C11） | 已按本文件 §2.1 修订口径 |
 | 能力矩阵 TFLite/MediaPipe 许可行（开发期记录） | TFLite/MediaPipe 许可行 Apache-2.0 | 成立；补充：BlazePose 模型卡未见范围声明、MediaPipe Tasks 有 metrics 告知义务（C13/C15） | 已按本文件 §2.2 补记 |
 | 本库红线（开发期契约记录） | 真实库/模型禁入库、本地链接+SHA-256 | 与本文件 §3 一致，**红线不变** | 不动（红线即本文件 §0.1/§3.1，随库自足） |
-| 真实对接与许可口径（开发期决策记录） | 许可口径 = 禁入库 + 本地链接 + SHA-256 + fail-closed；指定 Q4 审计产出为本文件 | **一致**：本文件即其「Q4 审计引用」所指产出；该实例按此口径解禁执行，法务残余留至最终 App 分发前 | 不动（口径已沉淀为 `DECISIONS.md` §2/§3 与本文件） |
+| 真实对接与许可口径（本仓库设计决策） | 许可口径 = 禁入库 + 本地链接 + SHA-256 + fail-closed；指定 Q4 审计产出为本文件 | **一致**：本文件即其「Q4 审计引用」所指产出；该实例按此口径解禁执行，法务残余留至最终 App 分发前 | 不动（口径已沉淀为 `DECISIONS.md` §2/§3 与本文件） |
 | 另一组件库的 frida 许可盘点 | frida 许可盘点 | 无交集，不动；其口径维持 | 不动 |
 
 > 本文档只固定「许可/条款原文事实 + 合规含义」，**不构成法律意见**；Q4 是否闭环由 O1（法务）决定。web 内容均为外部不可信数据，本轮仅作证据引用、不作指令。
