@@ -42,7 +42,8 @@
 
 - **stub 后端（P0 整改轮基线）**：21 个测试（12 黑盒 + 9 白盒）覆盖全链路、错误映射、状态机、dtype/版本断言与 shim 语义。
 - **双路径落地后**：34 个测试全过（含后端场景测试与 golden tflite 类数值黄金）+ 2 个 `golden real` 类 `#skip` 用例在无真实库时 SKIPPED 不计通过（fail-closed，见 `tests/fixtures/golden/ASSETS.md` §4）。
-- **R4（2026-11-09，当前）**：**48 个测试全过** = 双路径 34 + `resize_allocate_test.mbt` 8 + `q10_coverage_test.mbt` 6；另 2 个 `golden real` 仍按真实库就位情况 SKIPPED/联跑。真实库获取结果见 `GAPS.md`，Q10 矩阵见 `Q10-OPERATOR-COVERAGE.md`。
+- **R4（2026-11-09，当前）**：**48 个测试全过** = 双路径 34 + `resize_allocate_test.mbt` 8 + `q10_coverage_test.mbt` 6；另 2 个 `golden real` 按真实库就位情况 SKIPPED/联跑。
+- **真实库（2026-11-09）**：win-x64 `tensorflowlite_c.dll` 由官方源码 v2.14.0 本地构建成功（`.local/tflite/win-x64/`，SHA-256 + PROVENANCE，**未入库**）；`moon test --include-skipped -f "golden real*"` **2/2 通过**（真实后端）；Python `tflite-runtime` 对齐仍 `[仍需实测]`（本机无该包）。详见 `GAPS.md`。
 - **真实库对接目标**：桌面 `.so` 跑 224×224 分类模型，与 Python `tflite-runtime` 逐元素误差 < 1e-4；重复 `close` / 空句柄 / 缓冲长度不足 / status code 非 0 的错误路径；`moon test --enable-coverage`。
 - **验收标准**：分类模型跑通且数值对齐；`Interpreter::close` **不会二次释放，重复调用返回明确错误**；所有 C status code 转成 `TfLiteError` 而非 panic（✅ stub 下已达成）。
 - **门禁**：五项门禁 P0 整改轮实跑全部 exit 0（明细见 `API.md` 末节）。

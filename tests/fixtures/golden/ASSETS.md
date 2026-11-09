@@ -80,6 +80,12 @@ real 侧断言代码已就绪 `golden real*`，待真实库就位实跑）；登
 
 ## 4. SKIPPED 语义（exit 78 ≠ 通过）
 
+> **2026-11-09 实跑补充（R4）**：win-x64 真实库已取得（`.local/tflite/win-x64/`，
+> SHA-256 与 PROVENANCE 见 `GAPS.md`），`moon test --include-skipped -f "golden real*"`
+> 实跑 **2/2 通过**（首行 `backend_name()=="real"` 断言生效，冻结容差内数值对齐）。
+> 本文其它处「待真实库就位实跑」的措辞指 2026-11-08 登记时状态；**无库环境的
+> SKIPPED 语义不变**（仍不计通过）。
+
 - **无真实库**（MB_TFLITE_LIB_PATH / tflite_ffi/.local/tflite / D:\Android\Sdk /
   %USERPROFILE%\.gradle\caches 逐条探测均未命中）→ `SKIPPED: tflite/real golden real 未执行：
   真实库不可用（探测逐条列因）` → **exit 78，不得计通过**。

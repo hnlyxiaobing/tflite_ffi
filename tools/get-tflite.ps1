@@ -1,4 +1,4 @@
-# get-tflite.ps1 — 真实 tensorflowlite_c 获取脚本（2026-11-08；获取链 D2，见 ../DECISIONS.md §2/§3）
+﻿# get-tflite.ps1 — 真实 tensorflowlite_c 获取脚本（2026-11-08；获取链 D2，见 ../DECISIONS.md §2/§3）
 #
 # 【获取顺序（D2 冻结）】
 #   ① 本地探测：MB_TFLITE_LIB_PATH -> .local/tflite/<platform>/ 缓存
@@ -7,8 +7,10 @@
 #   ② 官方可验证渠道：仅限官方发布物（Android 各平台走 Google Maven
 #      org.tensorflow/tensorflow-lite AAR；win-x64/linux-x64 无官方预编译
 #      tensorflowlite_c -> 按冻结规则「无则跳过，禁止第三方构建/镜像」）
-#   ③ 官方源码最小构建：tensorflow 官方 tag 钉版、CMake 目标 tensorflowlite_c、
-#      MSVC（限时约 40 分钟由调用方后台任务控制；超时/失败 -> ④）
+#   ③ 官方源码最小构建：tensorflow 官方 tag 钉版、入口
+#      tensorflow/lite/c/CMakeLists.txt（target tensorflowlite_c）、MSVC x64
+#      + vcvars64/NMake、XNNPACK=OFF（最小构建；限时约 40 分钟由调用方后台
+#      任务控制；超时/失败 -> ④）
 #   ④ fail-closed：GAPS.md 缺口登记 + 接线完备（dispatch 已支持 stub 唯一运行
 #      路径）+ 脚本保留，exit 3
 #
@@ -36,7 +38,7 @@ param(
 $ErrorActionPreference = "Stop"
 $utf8Bom = [System.Text.UTF8Encoding]::new($true)
 $utf8NoBom = [System.Text.UTF8Encoding]::new($false)
-$acquireDate = "2026-11-08"
+$acquireDate = "2026-11-09"
 
 # ---------------- 参数与目录 ----------------
 $scriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
@@ -116,6 +118,18 @@ function Register-Gap([string]$detail) {
     [System.IO.File]::AppendAllText($gaps, $entry, $utf8NoBom)
   } else {
     [System.IO.File]::WriteAllText($gaps, $entry, $utf8NoBom)
+  }
+}
+
+function Import-MsvcEnv([string]$vcvarsPath) {
+  # 把 vcvars64.bat 设置的 PATH/INCLUDE/LIB 导入当前 PowerShell 进程，
+  # 使 NMake 生成器能找到 cl.exe/link.exe（VS 2026 不被 CMake 3.31 的
+  # "Visual Studio 17 2022" 生成器识别，故用 NMake + vcvars 兜底）。
+  $lines = & cmd.exe /c "call `"$vcvarsPath`" >nul 2>&1 && set"
+  foreach ($line in $lines) {
+    if ($line -match '^([^=]+)=(.*)$') {
+      Set-Item -Path ("env:" + $matches[1]) -Value $matches[2]
+    }
   }
 }
 
@@ -283,21 +297,52 @@ if ($Platform -eq "win-x64") {
     $srcDir = Join-Path $pkgRoot ".local\src\tensorflow"
     $cmakeExe = if ($cmake -is [System.Management.Automation.CommandInfo]) { $cmake.Source } else { $cmake.FullName }
     Write-Output ("step3: 官方源码构建 tag=" + $Version + " dir=" + $srcDir)
+    # vcvars64：VS 2026（18.x）不被 CMake 3.31 的 "Visual Studio 17 2022"
+    # 生成器识别，默认生成器会退化为 NMake 且找不到 cl.exe；先导入 MSVC 环境，
+    # 再用 NMake Makefiles。找不到 vcvars 时回退旧行为（-A x64）。
+    $vswhere = "${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\vswhere.exe"
+    $vsRoot = ""
+    if (Test-Path -LiteralPath $vswhere) {
+      $vsRoot = & $vswhere -latest -products * -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 -property installationPath
+    }
+    $vcvars = if ($vsRoot) { Join-Path $vsRoot "VC\Auxiliary\Build\vcvars64.bat" } else { "" }
     try {
       if (-not (Test-Path -LiteralPath (Join-Path $srcDir ".git"))) {
         & git clone --depth 1 --branch $Version https://github.com/tensorflow/tensorflow.git $srcDir
         if ($LASTEXITCODE -ne 0) { throw "git clone 失败 exit=$LASTEXITCODE" }
       }
-      $buildDir = Join-Path $srcDir "out_wp1"
-      & $cmakeExe -S (Join-Path $srcDir "tensorflow\lite") -B $buildDir -A x64 `
-        -DCMAKE_BUILD_TYPE=Release -DTFLITE_ENABLE_XNNPACK=ON
+      # 构建入口是 tensorflow/lite/c/CMakeLists.txt（定义 target tensorflowlite_c）；
+      # 直接配置 tensorflow/lite 只会得到 tensorflow-lite 静态库，没有 C API DLL。
+      $srcCmake = Join-Path $srcDir "tensorflow\lite\c"
+      $buildDir = Join-Path $srcDir "out_c"
+      # 导出修复：tensorflow-lite 以静态库构建时会把 TFL_STATIC_LIBRARY_BUILD
+      # 作为 PUBLIC 定义传播给 tensorflowlite_c，使 TFL_CAPI_EXPORT 退化为空，
+      # 生成的 DLL **没有任何导出**（实测 dumpbin /exports 为空，DLL 仅 47 KB）。
+      # 用 .def 强制导出 dispatch 所需的 24 个稳定 C API 符号（官方 c_api.h 子集）；
+      # 实测导出后 DLL 2.24 MB、dumpbin 列出 24 个 TfLite* 符号。
+      $defFile = Join-Path $srcDir "tensorflowlite_c_exports.def"
+      $defLines = @("EXPORTS") + ($requiredSymbols | ForEach-Object { "    " + $_ })
+      [System.IO.File]::WriteAllLines($defFile, $defLines, $utf8NoBom)
+      $defFlag = '/DEF:"' + $defFile + '"'
+      if ($vcvars -and (Test-Path -LiteralPath $vcvars)) {
+        Import-MsvcEnv $vcvars
+        Write-Output ("step3: 使用 vcvars64 + NMake Makefiles: " + $vcvars)
+        & $cmakeExe -S $srcCmake -B $buildDir -G "NMake Makefiles" `
+          -DCMAKE_BUILD_TYPE=Release -DTFLITE_ENABLE_XNNPACK=OFF `
+          "-DCMAKE_SHARED_LINKER_FLAGS=$defFlag"
+      } else {
+        Write-Output "step3: 未找到 vcvars64，回退 -A x64（需 CMake 支持的 VS 生成器）"
+        & $cmakeExe -S $srcCmake -B $buildDir -A x64 `
+          -DCMAKE_BUILD_TYPE=Release -DTFLITE_ENABLE_XNNPACK=OFF `
+          "-DCMAKE_SHARED_LINKER_FLAGS=$defFlag"
+      }
       if ($LASTEXITCODE -ne 0) { throw "cmake configure 失败 exit=$LASTEXITCODE" }
       & $cmakeExe --build $buildDir --config Release --target tensorflowlite_c
       if ($LASTEXITCODE -ne 0) { throw "cmake build tensorflowlite_c 失败 exit=$LASTEXITCODE" }
       $built = Get-ChildItem -Path $buildDir -Recurse -Filter "tensorflowlite_c.dll" -ErrorAction SilentlyContinue |
         Select-Object -First 1
       if ($built) {
-        Install-Lib $built.FullName ("官方源码构建: https://github.com/tensorflow/tensorflow @$Version") ("CMake 目标 tensorflowlite_c（MSVC x64 Release）")
+        Install-Lib $built.FullName ("官方源码构建: https://github.com/tensorflow/tensorflow @$Version") ("CMake 入口 tensorflow/lite/c、target tensorflowlite_c（MSVC x64 Release、NMake、XNNPACK=OFF）")
       }
       Write-Output "step3: 构建完成但未找到 tensorflowlite_c.dll -> ④"
     } catch {

@@ -68,6 +68,11 @@
 
 ## 3. real 侧待办（全部 `[仍需实测]`）
 
+> **真实库现状（2026-11-09）**：win-x64 `tensorflowlite_c.dll`（官方源码 v2.14.0）
+> 已本地取得，**micro MUL 黄金已实跑 2/2**（`golden real*`，真实后端，见
+> `GAPS.md`）。但目标模型（MoveNet/BlazePose）的算子集合与内核可用性**仍未实测**，
+> 本表 real 列保持 `pending_real`，不得因「库已就位」而写成已覆盖。
+
 1. **目标模型算子枚举**：在本地（不入库）用 Python `tf.lite.Interpreter` /
    flatbuffer 解析真实 MoveNet/BlazePose `.tflite`，导出 `operator_codes` 去重集合，
    与本表逐项比对。当前环境 `python 3.14.2` **无** `tensorflow` / `tflite_runtime`
