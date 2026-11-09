@@ -273,6 +273,73 @@ pub fn Interpreter::close(self : Interpreter) -> Unit raise TfLiteError {
 }
 
 ///|
+/// 动态调整第 `index` 个输入张量的形状（R4 加法性公开 API，2026-11-09）。
+///
+/// - **前置**：解释器未关闭；`index ∈ [0, input_count)`；`dims` 为 rank 1..8、
+///   每维 ≥ 1 的具体尺寸（不支持 `-1` 动态维；动态维只允许出现在 STF1 的
+///   输出描述里，由 `allocate_tensors` 镜像解析）。
+/// - **后置**：该输入的形状更新，全部张量缓冲失效——必须再调用
+///   `allocate_tensors` 才能 `set_input` / `invoke`（stub 未 allocate 时返回
+///   状态码 2，映射为 `CopyFromBufferFailed(2)` / `InvokeFailed(2)` /
+///   `CopyToBufferFailed(2)`）。
+/// - **错误**：`AlreadyClosed`、`InvalidTensorIndex`、`ResizeFailed(code, detail)`
+///   （dims 非法或后端拒绝 resize）。
+/// - **平台语义**：stub 允许改变 rank；real TFLite 要求 rank 与模型签名一致，
+///   不符时折叠为 `ResizeFailed(1, ...)`（双路径差异见 DESIGN.md §14.4）。
+pub fn Interpreter::resize_input(
+  self : Interpreter,
+  index : TensorIndex,
+  dims : Array[Int32],
+) -> Unit raise TfLiteError {
+  ensure_open(self)
+  if index < 0 || index >= self.input_count {
+    raise InvalidTensorIndex(index)
+  }
+  let rank = dims.length()
+  if rank < 1 || rank > 8 {
+    raise ResizeFailed(
+      1,
+      "rank " + rank.to_string() + " out of supported range 1..8",
+    )
+  }
+  for i in 0..<rank {
+    if dims[i] < 1 {
+      raise ResizeFailed(
+        1,
+        "dims[" + i.to_string() + "] = " + dims[i].to_string() + " must be >= 1",
+      )
+    }
+  }
+  let c_dims : FixedArray[Int32] = FixedArray::make(rank, 0)
+  for i in 0..<rank {
+    c_dims[i] = dims[i]
+  }
+  let code = mb_tfl_resize_input(self.interp, index, c_dims, rank)
+  if code != 0 {
+    raise ResizeFailed(
+      code,
+      "resize_input(index=" + index.to_string() + ") failed",
+    )
+  }
+}
+
+///|
+/// 分配/重新分配全部张量（R4 加法性公开 API，2026-11-09）。
+///
+/// 必须在 `resize_input` 之后调用；`from_bytes` 已隐式完成首次分配，因此
+/// 未 resize 时调用等价于按当前形状重新分配（幂等，stub 与 real 均可）。
+/// 错误：`AlreadyClosed`、`AllocateTensorsFailed(code)`（形状冲突/后端拒绝）。
+pub fn Interpreter::allocate_tensors(
+  self : Interpreter,
+) -> Unit raise TfLiteError {
+  ensure_open(self)
+  let code = mb_tfl_allocate_tensors(self.interp)
+  if code != 0 {
+    raise AllocateTensorsFailed(code)
+  }
+}
+
+///|
 /// 写入第 `index` 个输入张量（`data` 只读，长度必须等于张量字节数）。
 pub fn Interpreter::set_input(
   self : Interpreter,

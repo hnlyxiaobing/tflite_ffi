@@ -37,18 +37,16 @@
 | `mb_tfl_output_count(interp) -> Int` | — | 输出张量数量 |
 | `mb_tfl_input_tensor(interp, index) -> TfLiteTensorRaw` | — | 借用句柄 |
 | `mb_tfl_output_tensor(interp, index) -> TfLiteTensorRaw` | — | 借用句柄 |
-| `_mb_tfl_resize_input(interp, index, dims : FixedArray[Int], dims_len) -> StatusCode`（C 符号 `mb_tfl_resize_input`） | `#borrow(dims)` | 动态尺寸 |
-| `_mb_tfl_allocate_tensors(interp) -> StatusCode`（C 符号 `mb_tfl_allocate_tensors`） | — | 分配张量 |
+| `mb_tfl_resize_input(interp, index, dims : FixedArray[Int], dims_len) -> StatusCode` | `#borrow(dims)` | 动态尺寸 |
+| `mb_tfl_allocate_tensors(interp) -> StatusCode` | — | 分配张量 |
 | `mb_tfl_tensor_copy_from(tensor, src : Bytes, size) -> StatusCode` | `#borrow(src)` | 写入输入 |
 | `mb_tfl_tensor_copy_to(tensor, dst : FixedArray[Byte], size) -> StatusCode` | `#borrow(dst)` | 读出输出 |
 | `mb_tfl_invoke(interp) -> StatusCode` | — | 同步推理 |
 
-> **`_` 前缀绑定（2 个）**：`mb_tfl_resize_input` / `mb_tfl_allocate_tensors` 在**库层当前无调用点**
-> （MoonBit 层 resize/allocate API 不在冻结公开面内），而 `moon check --deny-warn` 会把无调用点的
-> 私有函数报为 `unused_value`。故 MoonBit 侧绑定名写作 `_mb_tfl_resize_input` /
-> `_mb_tfl_allocate_tensors`（**C 符号字符串 `= "mb_tfl_resize_input"` / `= "mb_tfl_allocate_tensors"`
-> 与签名零改动**，调用点在白盒测试 `tflite_ffi_wbtest.mbt`，与包内调用同步更新）。
-> 后续若暴露 MoonBit 层 resize API，去掉下划线前缀即恢复正名。
+> **`_` 前缀已取消（R4，2026-11-09）**：`mb_tfl_resize_input` /
+> `mb_tfl_allocate_tensors` 已由 MoonBit 层公开 API
+> `Interpreter::{resize_input, allocate_tensors}` 调用，绑定名恢复正名
+> （C 符号字符串与签名始终零改动）。历史白盒测试的直调点同步改名。
 >
 > 另有 4 个**私有内部 ABI** 符号（`tflite_ffi_private_{model,options,interp}_alive`、
 > `tflite_ffi_private_tensor_meta`，声明于 `interpreter.mbt`），本就不属于公开面，未做改动。
@@ -71,12 +69,14 @@
 | `TfLiteError::NullHandle` 构造器公开 | `pub(all)` 使其随错误类型整体公开（快照含 `NullHandle(String)`） | 测试与包外适配器可匹配 `NullHandle(_)` |
 | `TensorDtype::Int64` 分支 | `pub(all) enum TensorDtype` 含 `Int64`；`dtype_of_code(5) => Int64` | 白盒 `wb dtype_of_code maps all supported codes` 覆盖 |
 
-## MoonBit 侧公开 API（全部为真实实现，签名冻结）
+## MoonBit 侧公开 API（全部为真实实现；既有签名冻结，R4 加法性新增 2 条）
 
 | 签名 | 参数与所有权 | 返回 / 错误 | 资源与线程约束 |
 |---|---|---|---|
 | `Interpreter::from_bytes(model_bytes : Bytes, options : InterpreterOptions) -> Interpreter raise TfLiteError` | `model_bytes` 只读；失败按创建逆序释放 | 包装值 `owns_model=true` / `TfLiteError` | 同一 Interpreter 禁止并发 invoke |
 | `Interpreter::close(self) -> Unit raise TfLiteError` | 消耗释放责任 | `Unit` / `AlreadyClosed` | 必须与 invoke 串行；**不会二次释放，重复调用返回明确错误** |
+| `Interpreter::resize_input(self, index : TensorIndex, dims : Array[Int32]) -> Unit raise TfLiteError` | `dims` 只读；rank 1..8、每维 ≥1 | `Unit` / `AlreadyClosed`、`InvalidTensorIndex`、`ResizeFailed(code, detail)` | 与 invoke 串行；**resize 后必须再 allocate** |
+| `Interpreter::allocate_tensors(self) -> Unit raise TfLiteError` | `self` 只读 | `Unit` / `AlreadyClosed`、`AllocateTensorsFailed(code)` | 与 invoke 串行；未 resize 时幂等重分配 |
 | `Interpreter::set_input(self, index : TensorIndex, data : Bytes) -> Unit raise TfLiteError` | `data` 只读 | `Unit` / `InvalidTensorIndex`、`BufferSizeMismatch`、`CopyFromBufferFailed` | 与 invoke 串行 |
 | `Interpreter::output_raw(self, index : TensorIndex) -> Bytes raise TfLiteError` | `self` 只读 | 原始张量字节（不做类型解释） | 与 invoke 串行 |
 | `Interpreter::invoke(self) -> Unit raise TfLiteError` | `self` 只读 | `Unit` / `InvokeFailed(code)` | **同一 Interpreter 不可并发** |
@@ -144,6 +144,34 @@ shim ABI `0x00010001`（既有断言零改动）；「real 强制且加载失败
 `LibraryNotLoaded`——机制修订（2026-11-08 裁决）项，映射详见 DESIGN.md §14
 与 `DECISIONS.md` §2。
 
+## R4 加法性公开 API：动态形状（2026-11-09）
+
+> 动机与决策见 `DECISIONS.md` §7。既有 6 个方法 + 3 个只读访问器签名**零变化**；
+> 快照 diff 期望恰为 `Interpreter::allocate_tensors` / `Interpreter::resize_input`
+> 两行加法。错误类型零变化（复用冻结前已预留的 `ResizeFailed` /
+> `AllocateTensorsFailed`）。
+
+### 新增方法（2 条）
+
+| 签名 | 语义 |
+|---|---|
+| `pub fn Interpreter::resize_input(self, index : TensorIndex, dims : Array[Int32]) -> Unit raise TfLiteError` | 更新第 `index` 个输入的形状（rank 1..8、每维 ≥1）；resize 后全部缓冲失效，必须再 `allocate_tensors`。错误：`AlreadyClosed`、`InvalidTensorIndex`、`ResizeFailed(code, detail)` |
+| `pub fn Interpreter::allocate_tensors(self) -> Unit raise TfLiteError` | 分配/重新分配全部张量；未 resize 时等价于按当前形状重分配（幂等）。错误：`AlreadyClosed`、`AllocateTensorsFailed(code)` |
+
+### 双路径语义差异（登记，见 `DESIGN.md` §14.4）
+
+| 语义点 | stub（STF1） | real（TFL3） |
+|---|---|---|
+| resize 后未 allocate：`set_input` / `invoke` / `output_raw` | 状态码 2 → `CopyFromBufferFailed(2)` / `InvokeFailed(2)` / `CopyToBufferFailed(2)` | TfLiteStatus 非 0 折叠为 1 → 对应 `(1)` |
+| rank 变化 | 允许（输出 `-1` 维在 allocate 时镜像 input 0） | 要求与模型签名一致，不匹配 → `ResizeFailed(1, ...)` |
+| 负维/零维/rank>8 | MoonBit 层先行校验 → `ResizeFailed(1, detail)`（双路径一致，不 panic） | 同左 |
+
+### API-CHANGELOG 条目文本（根仓库 `API-CHANGELOG.md` 由主控维护，本模块只提供文本）
+
+> 类别 `加法性追认`｜`tflite_ffi`：新增 `Interpreter::resize_input` 与
+> `Interpreter::allocate_tensors`（动态形状；既有公开签名零变化；错误模型零变化；
+> `pkg.generated.mbti` 快照新增两行，随源码同一提交）。
+
 ## 非目标
 
 预处理/后处理、模型下载、模型 zoo、量化决策、GPU/delegate、Extension/opaque API、`foreign_library` 导出。
@@ -157,7 +185,7 @@ shim ABI `0x00010001`（既有断言零改动）；「real 强制且加载失败
 | `moon clean` | ✅ exit 0 |
 | `moon check --deny-warn` | ✅ exit 0（0 error / 0 warning，无 `0068`、无 `unused_value`） |
 | `moon build` | ✅ exit 0（链接 `stub/mb_tfl_stub.c`，无外部库） |
-| `moon test` | ✅ exit 0，**21 tests 全过**（12 黑盒 + 9 白盒；基线 23，删除 2 个、迁入 4 个，见 README 测试数明细） |
+| `moon test` | ✅ exit 0，R4 实跑 **48 tests 全过**（黑盒 + 白盒；含 resize/allocate 8 个错误路径用例与 Q10 6 个算子矩阵用例） |
 | `moon fmt --check` | ✅ exit 0 |
 
-真实 `libtensorflowlite_c` 对接与数值对齐（<1e-4）留待**真实库对接阶段**；本库保持项目内 C stub 双路径（`DECISIONS.md` §2），stub 为 CI 默认后端。双路径落地后测试扩至 34 个全过 + 2 个 `golden real` 类 SKIPPED（无真实库，不计通过）。
+真实 `libtensorflowlite_c` 对接与数值对齐（<1e-4）留待**真实库对接阶段**；本库保持项目内 C stub 双路径（`DECISIONS.md` §2），stub 为 CI 默认后端。双路径落地时 34 个测试全过 + 2 个 `golden real` 类 SKIPPED（无真实库，不计通过）；R4（2026-11-09）追加 resize/allocate 8 个与 Q10 6 个用例后为 **48 个全过 + 2 个 `golden real` SKIPPED**。真实库获取结果与证据等级以 `GAPS.md` 为准（未取得时不得写成通过）。

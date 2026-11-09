@@ -1,8 +1,8 @@
 // Whitebox tests run within the package scope.
 // 覆盖内部映射：dtype 编码 → TensorDtype、版本断言常量、
 // tensor_desc_of 的 NullHandle 错误映射（内部 shim 异常路径）、
-// 以及冻结前 P0（决策 6）由黑盒迁入的 `_mb_tfl_resize_input` /
-// `_mb_tfl_allocate_tensors` 直调测试（shim 已收紧为包私有）。
+// 以及冻结前 P0（决策 6）由黑盒迁入的 `mb_tfl_resize_input` /
+// `mb_tfl_allocate_tensors` 直调测试（shim 已收紧为包私有）。
 
 ///|
 fn wb_model() -> Bytes {
@@ -244,7 +244,7 @@ fn wb_model_dynamic() -> Bytes {
 test "wb resize_input and allocate_tensors flow" {
   let interp = Interpreter::from_bytes(wb_model_dynamic(), wb_opts())
   let dims : FixedArray[Int32] = [2, 4]
-  assert_eq(0, _mb_tfl_resize_input(interp.interp, 0, dims, 2))
+  assert_eq(0, mb_tfl_resize_input(interp.interp, 0, dims, 2))
   // resize 后缓冲失效：未 allocate 之前写入按 CopyFromBufferFailed 传播
   let input = f32_bytes([
     0x3F800000, 0x40000000, 0x40400000, 0x40800000, 0x40A00000, 0x40C00000, 0x40E00000,
@@ -252,7 +252,7 @@ test "wb resize_input and allocate_tensors flow" {
   ])
   let e = expect_err(() => interp.set_input(0, input))
   assert_true(e is TfLiteError::CopyFromBufferFailed(2))
-  assert_eq(0, _mb_tfl_allocate_tensors(interp.interp))
+  assert_eq(0, mb_tfl_allocate_tensors(interp.interp))
   // allocate 后：输入 32 字节、输出动态维镜像为 [2, 4]
   interp.set_input(0, input)
   interp.invoke()
@@ -276,7 +276,7 @@ test "wb resize_input and allocate_tensors flow" {
 test "wb ops before allocate after resize fail" {
   let interp = Interpreter::from_bytes(wb_model_dynamic(), wb_opts())
   let dims : FixedArray[Int32] = [2, 4]
-  assert_eq(0, _mb_tfl_resize_input(interp.interp, 0, dims, 2))
+  assert_eq(0, mb_tfl_resize_input(interp.interp, 0, dims, 2))
   let e1 = expect_err(() => interp.invoke())
   assert_true(e1 is TfLiteError::InvokeFailed(2))
   let e2 = expect_err(() => ignore(interp.output_raw(0)))
@@ -310,8 +310,8 @@ test "wb allocate_tensors fails on rank conflict" {
   )
   let interp = Interpreter::from_bytes(model, wb_opts())
   let dims : FixedArray[Int32] = [4]
-  assert_eq(0, _mb_tfl_resize_input(interp.interp, 0, dims, 1))
-  assert_eq(1, _mb_tfl_allocate_tensors(interp.interp))
+  assert_eq(0, mb_tfl_resize_input(interp.interp, 0, dims, 1))
+  assert_eq(1, mb_tfl_allocate_tensors(interp.interp))
   interp.close()
 }
 
@@ -319,12 +319,12 @@ test "wb allocate_tensors fails on rank conflict" {
 test "wb resize_input rejects invalid dims" {
   let interp = Interpreter::from_bytes(wb_model_f32(), wb_opts())
   let empty : FixedArray[Int32] = []
-  assert_eq(1, _mb_tfl_resize_input(interp.interp, 0, empty, 0))
+  assert_eq(1, mb_tfl_resize_input(interp.interp, 0, empty, 0))
   let neg : FixedArray[Int32] = [1, -2]
-  assert_eq(1, _mb_tfl_resize_input(interp.interp, 0, neg, 2))
+  assert_eq(1, mb_tfl_resize_input(interp.interp, 0, neg, 2))
   let zero_dim : FixedArray[Int32] = [0, 4]
-  assert_eq(1, _mb_tfl_resize_input(interp.interp, 0, zero_dim, 2))
+  assert_eq(1, mb_tfl_resize_input(interp.interp, 0, zero_dim, 2))
   let bad_index : FixedArray[Int32] = [1, 4]
-  assert_eq(1, _mb_tfl_resize_input(interp.interp, 5, bad_index, 2))
+  assert_eq(1, mb_tfl_resize_input(interp.interp, 5, bad_index, 2))
   interp.close()
 }

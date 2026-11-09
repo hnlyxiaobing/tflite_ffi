@@ -31,6 +31,7 @@ pub fn TfLiteError::to_repr(Self) -> @debug.Repr
 
 // Types and methods
 type Interpreter
+pub fn Interpreter::allocate_tensors(Self) -> Unit raise TfLiteError
 pub fn Interpreter::close(Self) -> Unit raise TfLiteError
 pub fn Interpreter::from_bytes(Bytes, InterpreterOptions) -> Self raise TfLiteError
 pub fn Interpreter::input_count(Self) -> Int32
@@ -38,6 +39,7 @@ pub fn Interpreter::invoke(Self) -> Unit raise TfLiteError
 pub fn Interpreter::output_count(Self) -> Int32
 pub fn Interpreter::output_desc(Self, Int32) -> TensorDesc raise TfLiteError
 pub fn Interpreter::output_raw(Self, Int32) -> Bytes raise TfLiteError
+pub fn Interpreter::resize_input(Self, Int32, Array[Int32]) -> Unit raise TfLiteError
 pub fn Interpreter::set_input(Self, Int32, Bytes) -> Unit raise TfLiteError
 pub fn Interpreter::state(Self) -> InterpreterState
 

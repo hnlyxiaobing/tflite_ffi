@@ -104,13 +104,14 @@ tensor / invoke 及张量描述），**不声明 Extension / opaque / delegate /
   分类原因的权威来源是 `backend_info()` 的 `load_status`/`reason`；场景测试
   按**双断言**纪律执行：`LibraryNotLoaded` 抛出 **且** `backend_info()` 含
   F 分类原因。
-- **加法性公开 API 恰两条**（D 仲裁「公开面最小化」）：
+- **加法性公开 API**：双路径落地时恰两条（D 仲裁「公开面最小化」）：
   `backend_name() -> String`（`"stub"`|`"real"` 稳定字面量，不抛错）与
   `backend_info() -> String`（key=value 行文本：`mode`/`resolved`/`lib_path`/
   `load_status`/`reason`/`tfl_version`/`schema_version`，不抛错）。其余冻结面
   零变化；5 个包私有白盒钩子（`_tfl_backend_reset` / `_tfl_backend_force_fail` /
   `_tfl_backend_live_handles` / `backend_name_code` / `backend_info_bytes`）
-  不进 `moon info` 快照。
+  不进 `moon info` 快照。**R4（2026-11-09）再追加两条动态形状 API**——
+  `Interpreter::{resize_input, allocate_tensors}`，见 §7。
 - **三场景可测（无真实库也全绿）**：①路径不存在 ②损坏映像（测试期在临时目录
   生成垃圾字节/缺导出最小 PE，**不入库**）③加载失败走白盒故障注入
   `force_fail(1|2|3)`。auto 下断言进程存活、`backend_name()=="stub"`、STF1
@@ -283,6 +284,40 @@ import 本库（否决：循环 + 绑定死）；把 trait 抽成独立第 12 �
 形状错误靠 `TensorDesc`/`ModelSpec` 元数据在适配器层校验。
 
 ---
+
+## 7. R4：动态形状 API 公开（2026-11-09）
+
+**背景**。真实 TFLite 模型常含动态输入（batch / 输入尺寸可变），`c_api.h` 的标准
+流程是 `TfLiteInterpreterResizeInputTensor` → `TfLiteInterpreterAllocateTensors`
+→ `TfLiteTensorCopyFromBuffer` → `Invoke`。R3 双路径落地时这两个 shim 已在 C 层
+实现并路由（stub/real 双路径），但 MoonBit 层没有调用点，绑定名带 `_` 前缀、
+只有白盒测试直调——下游无法使用动态形状（只能按模型固定形状），C 层接线等于
+死代码。
+
+**决策**。加法性公开两个方法（既有冻结面零变化）：
+
+- `Interpreter::resize_input(self, index : TensorIndex, dims : Array[Int32])
+  -> Unit raise TfLiteError`：rank 1..8、每维 ≥1；resize 后全部缓冲失效，必须
+  再 `allocate_tensors`；错误 `AlreadyClosed` / `InvalidTensorIndex` /
+  `ResizeFailed(code, detail)`。
+- `Interpreter::allocate_tensors(self) -> Unit raise TfLiteError`：分配/重新分配；
+  未 resize 时等价于按当前形状重新分配（幂等）；错误 `AlreadyClosed` /
+  `AllocateTensorsFailed(code)`。
+
+错误类型零变化（`ResizeFailed(Int32, String)` / `AllocateTensorsFailed(Int32)`
+在冻结前已预留）；17 个 shim 的 C 符号与签名零变化，仅 MoonBit 绑定去掉历史
+`_` 前缀（`mb_tfl_resize_input` / `mb_tfl_allocate_tensors`）。快照 diff 期望
+恰为 `Interpreter::resize_input` / `Interpreter::allocate_tensors` 两行加法。
+
+**理由**。动态形状是真实模型（MoveNet 等）的常见需求；不公开则 C 层接线无法被
+下游使用。语义校验（rank/负维/零维）放在 MoonBit 层，保证 stub/real 双路径的
+畸形输入都走 `TfLiteError` 而非 panic。
+
+**后果**。公开面 +2，需 `moon info` 快照随源码提交 + 根仓库 `API-CHANGELOG.md`
+加法性追认条目（该文件由主控维护，本模块只提供条目文本）。双路径语义差异
+（stub 允许 rank 变化、状态码 2 仅 stub；real 要求 rank 与模型签名一致、状态码
+折叠为 0/1）登记于 `DESIGN.md` §14.4；测试见 `resize_allocate_test.mbt`（8 个
+黑盒用例）与白盒 shim 直调用例。
 
 ## 附：决策编号对照
 

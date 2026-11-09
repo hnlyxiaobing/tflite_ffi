@@ -137,8 +137,9 @@ pub type StatusCode = Int32
 /// shim 存在的意义：隔离 GObject/结构体 ABI、统一 status code、集中处理 `#borrow`/`#owned`。
 /// 冻结前 P0（决策 6）：可见性由 `pub` 收紧为包私有，**不再出现在 `moon info` 快照**；
 /// 符号名、签名与实现不变，包内 `interpreter.mbt` 调用点零改动。
-/// 其中 `_mb_tfl_resize_input` / `_mb_tfl_allocate_tensors` 两个绑定带 `_` 前缀
-/// （库层暂无调用点，见各自注释）；C 符号仍为 `mb_tfl_*` 同名。
+/// R4（2026-11-09）：`resize_input` / `allocate_tensors` 已暴露为 MoonBit 层公开 API
+/// （`Interpreter::{resize_input, allocate_tensors}`），两个绑定恢复正名
+/// （去掉历史上的 `_` 前缀；C 符号始终为 `mb_tfl_*`）。
 /// 本文件为桌面确定性 stub；真实 libtensorflowlite_c 对接与数值对齐留待真实库对接阶段。
 
 ///|
@@ -205,14 +206,13 @@ extern "C" fn mb_tfl_output_tensor(
 
 ///|
 /// 动态尺寸调整；`dims` 为 `#borrow`，C 侧只读取。
-/// 绑定名 `_` 前缀：C 符号仍是 `mb_tfl_resize_input`（签名与 `stub/mb_tfl_stub.c`
-/// 一对一，零改动），但**库层当前无调用点**（MoonBit 层 resize API 不在冻结
-/// 公开面内），`moon check --deny-warn` 会把无调用点的私有函数报为
-/// `unused_value`；`_` 前缀是 MoonBit 对「暂无调用点」的标记豁免。
-/// 调用点在白盒测试（`tflite_ffi_wbtest.mbt`）。后续若暴露 MoonBit 层
-/// resize API，去掉下划线前缀即恢复正名。
+/// R4（2026-11-09）：MoonBit 层已暴露公开 API `Interpreter::resize_input`
+/// （本绑定去掉历史 `_` 前缀恢复正名；C 符号 `mb_tfl_resize_input` 不变）。
+/// 语义：resize 后全部张量缓冲失效，必须再调用 `allocate_tensors` 才能
+/// copy/invoke；未 allocate 时 stub 返回状态码 2（NOT_ALLOCATED），
+/// real 路径 TfLiteStatus 非 0 一律折叠为 1（双路径差异见 DESIGN.md §14.4）。
 #borrow(dims)
-extern "C" fn _mb_tfl_resize_input(
+extern "C" fn mb_tfl_resize_input(
   interp : TfLiteInterpreterRaw,
   index : Int32,
   dims : FixedArray[Int32],
@@ -220,9 +220,9 @@ extern "C" fn _mb_tfl_resize_input(
 ) -> StatusCode = "mb_tfl_resize_input"
 
 ///|
-/// 分配张量；绑定名 `_` 前缀理由同 `_mb_tfl_resize_input`（库层暂无调用点，
-/// C 符号 `mb_tfl_allocate_tensors` 不变，调用点在白盒测试）。
-extern "C" fn _mb_tfl_allocate_tensors(
+/// 分配张量（resize 后必须调用）。R4（2026-11-09）：MoonBit 层已暴露公开
+/// API `Interpreter::allocate_tensors`（本绑定去掉历史 `_` 前缀）。
+extern "C" fn mb_tfl_allocate_tensors(
   interp : TfLiteInterpreterRaw,
 ) -> StatusCode = "mb_tfl_allocate_tensors"
 

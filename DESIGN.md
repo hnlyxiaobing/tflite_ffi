@@ -1,10 +1,15 @@
 # tflite_ffi · 设计契约（DESIGN.md）
 
-> API 冻结前 P0 整改轮 / 2026-11-07 ｜ 状态：**实现完成**（桌面确定性 C stub 双路径，
-> stub 为 CI 默认后端）；`moon clean` / `moon check --deny-warn` / `moon build` /
-> `moon test`（21 tests）/ `moon fmt --check` 五项门禁全绿。
+> API 冻结前 P0 整改轮 / 2026-11-07；**R4 增量实现轮 / 2026-11-09 更新**：状态
+> **实现完成**（桌面确定性 C stub 双路径，stub 为 CI 默认后端；R4 公开
+> `resize_input` / `allocate_tensors` 动态形状 API，追加 Q10 矩阵）。`moon clean` /
+> `moon check --deny-warn` / `moon build` / `moon test`（**48 tests**）/
+> `moon fmt --check` 五道门禁全绿；另 2 个 `golden real` 按真实库就位情况
+> SKIPPED/联跑（不计通过）。
 > 真实 `libtensorflowlite_c` 对接与数值对齐留待真实库对接阶段；**冻结前公开面只做三类变化**：
 > 删除 `InferenceRuntime` 死接口、`Interpreter` 字段与 17 个 shim 私有化、文档化追认。
+> R4 的 `resize_input` / `allocate_tensors` 为**加法性公开 API**（`DECISIONS.md` §7），
+> 既有签名零变化。
 
 ## 1. 分层位置与职责
 
@@ -99,10 +104,13 @@ tensorflowlite_c.so / c_api.h
 | 层次 | 内容 |
 |---|---|
 | 黑盒（12） | `from_bytes → set_input → invoke → output_raw/output_desc → close` 全链路；重复 close；越界 `TensorIndex`；缓冲长度不符；fp16/量化快照；错误映射；状态机经只读访问器 `state()` 观测 |
-| 白盒（9） | status code → `TfLiteError` 映射；`NullHandle`；`ensure_open` 守卫；dtype 编码表；版本断言；**由黑盒迁入的 `_mb_tfl_resize_input` / `_mb_tfl_allocate_tensors` 直调**（shim 私有化后黑盒不可再调用） |
+| 白盒（9） | status code → `TfLiteError` 映射；`NullHandle`；`ensure_open` 守卫；dtype 编码表；版本断言；`mb_tfl_resize_input` / `mb_tfl_allocate_tensors` 直调（shim 私有化 + R4 恢复正名） |
+| 后端场景（10） | F1/F2/F3、auto 回退、real 强制双断言、reset 守卫、env 契约（见 `backend_wbtest.mbt`） |
+| R4 动态形状（8，黑盒） | `resize_allocate_test.mbt`：resize→allocate 全链路、未 allocate 状态码 2、分配前后尺寸不匹配、负/零/空/rank>8、越界 index、close 后、rank 冲突、幂等 allocate |
+| Q10 算子矩阵（6，黑盒） | `q10_coverage_test.mbt`：TFL3 算子枚举、矩阵 real 侧 pending、stub 拒 TFL3、6 dtype、未知 dtype、STF1 无算子表（见 `Q10-OPERATOR-COVERAGE.md`） |
 | 真实库对接目标 | 224×224 分类模型与 Python `tflite-runtime` 逐元素误差 < 1e-4（真实库对接后） |
 | 平台 | 桌面 x86-64 先验证；上板测 armv7/arm64 与帧率预算 |
-| 门禁 | `moon clean` → `moon check --deny-warn` → `moon build` → `moon test` → `moon fmt --check`（P0 整改轮实跑，全部 exit 0） |
+| 门禁 | `moon clean` → `moon check --deny-warn` → `moon build` → `moon test`（48/48）→ `moon fmt --check`（R4 实跑，全部 exit 0；第 5 道快照门禁另计） |
 
 ## 11. 验收标准
 
@@ -117,8 +125,9 @@ tensorflowlite_c.so / c_api.h
 
 ## 13. 当前状态与 TODO
 
-`tflite_ffi.mbt` 含 4 个 `#external` 句柄、**17 个包私有 `extern "C"` shim 声明**（2 个绑定带
-`_` 前缀，见 API.md）、值类型与错误模型；`interpreter.mbt` 实现 6 个公开方法 + 3 个只读访问器，
+`tflite_ffi.mbt` 含 4 个 `#external` 句柄、**17 个包私有 `extern "C"` shim 声明**
+（R4 起 resize/allocate 绑定恢复正名，见 API.md）、值类型与错误模型；`interpreter.mbt`
+实现 **8 个公开方法 + 3 个只读访问器**（R4 新增 `resize_input` / `allocate_tensors`），
 全部为真实实现（**无 `declare`、无 `TODO(实现轮)`、无 `0068`**），`stub/mb_tfl_stub.c` 提供
 桌面确定性 C 实现（`native-stub`）。剩余 TODO 全部属于真实库对接阶段：真实
 `libtensorflowlite_c` 对接、数值对齐 <1e-4、上板验证。
