@@ -73,7 +73,7 @@
 
 | 签名 | 参数与所有权 | 返回 / 错误 | 资源与线程约束 |
 |---|---|---|---|
-| `Interpreter::from_bytes(model_bytes : Bytes, options : InterpreterOptions) -> Interpreter raise TfLiteError` | `model_bytes` 只读；失败按创建逆序释放 | 包装值 `owns_model=true` / `TfLiteError` | 同一 Interpreter 禁止并发 invoke |
+| `Interpreter::from_bytes(model_bytes : Bytes, options : InterpreterOptions) -> Interpreter raise TfLiteError` | `model_bytes` 只读；失败按创建逆序释放 | 包装值 `owns_model=true` / `TfLiteError`（含 `AllocateTensorsFailed`） | 同一 Interpreter 禁止并发 invoke；内部完成首次 `AllocateTensors` |
 | `Interpreter::close(self) -> Unit raise TfLiteError` | 消耗释放责任 | `Unit` / `AlreadyClosed` | 必须与 invoke 串行；**不会二次释放，重复调用返回明确错误** |
 | `Interpreter::resize_input(self, index : TensorIndex, dims : Array[Int32]) -> Unit raise TfLiteError` | `dims` 只读；rank 1..8、每维 ≥1 | `Unit` / `AlreadyClosed`、`InvalidTensorIndex`、`ResizeFailed(code, detail)` | 与 invoke 串行；**resize 后必须再 allocate** |
 | `Interpreter::allocate_tensors(self) -> Unit raise TfLiteError` | `self` 只读 | `Unit` / `AlreadyClosed`、`AllocateTensorsFailed(code)` | 与 invoke 串行；未 resize 时幂等重分配 |
@@ -165,6 +165,17 @@ shim ABI `0x00010001`（既有断言零改动）；「real 强制且加载失败
 | resize 后未 allocate：`set_input` / `invoke` / `output_raw` | 状态码 2 → `CopyFromBufferFailed(2)` / `InvokeFailed(2)` / `CopyToBufferFailed(2)` | TfLiteStatus 非 0 折叠为 1 → 对应 `(1)` |
 | rank 变化 | 允许（输出 `-1` 维在 allocate 时镜像 input 0） | 要求与模型签名一致，不匹配 → `ResizeFailed(1, ...)` |
 | 负维/零维/rank>8 | MoonBit 层先行校验 → `ResizeFailed(1, detail)`（双路径一致，不 panic） | 同左 |
+
+### `from_bytes` 隐式首次分配（2026-11-09 修复，真实库实跑发现）
+
+real TFLite 的 `TfLiteInterpreterCreate` **不会**自动分配张量缓冲，必须显式
+`TfLiteInterpreterAllocateTensors`；stub 的 `interpreter_create` 内部已分配且重复
+allocate 幂等。此前 `from_bytes` 未调用 allocate，real 路径首次 `set_input` 会在
+`TfLiteTensorCopyFromBuffer` 写 `tensor->data.raw == NULL` 时崩溃（Windows
+`0xC0000005`）。现 `from_bytes` 在创建解释器后统一调用
+`mb_tfl_allocate_tensors`，失败抛 `AllocateTensorsFailed(code)`；修复后
+`golden real*` 2/2 与 CLI `--backend real` 全链路实跑通过（证据见 `GAPS.md`）。
+`allocate_tensors` 公开方法仍可用于 resize 后的重新分配。
 
 ### API-CHANGELOG 条目文本（根仓库 `API-CHANGELOG.md` 由主控维护，本模块只提供文本）
 

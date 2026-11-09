@@ -319,6 +319,14 @@ import 本库（否决：循环 + 绑定死）；把 trait 抽成独立第 12 �
 折叠为 0/1）登记于 `DESIGN.md` §14.4；测试见 `resize_allocate_test.mbt`（8 个
 黑盒用例）与白盒 shim 直调用例。
 
+**真实库实跑补记（2026-11-09，R4）**：win-x64 真实库取得后，`golden real` 首次
+运行在 `set_input` 崩溃（Windows `0xC0000005`）——根因是 `TfLiteInterpreterCreate`
+**不会**自动分配张量，real 路径必须在创建后显式 `AllocateTensors`。修复：
+`from_bytes` 在创建解释器后调用 `mb_tfl_allocate_tensors`，失败抛
+`AllocateTensorsFailed`；stub 侧重复 allocate 幂等，48 个用例零回归。修复后
+`golden real` 2/2、CLI `--backend real` 全链路通过。该修复不改变任何公开签名，
+只把 `API.md` 中「from_bytes 已隐式完成首次分配」的既有措辞落实为真实行为。
+
 ## 附：决策编号对照
 
 开发期契约曾以 D1–D6 编号仲裁分歧，本库文档沿用该编号时含义如下（均已在

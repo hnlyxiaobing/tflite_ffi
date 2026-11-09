@@ -189,8 +189,9 @@ pub fn Interpreter::output_count(self : Interpreter) -> Int32 {
 /// - 获取资源：model / options / interpreter 三个 C 句柄；失败时按创建逆序释放。
 /// - 返回：`Interpreter` 包装值，`owns_model = true`，`state = Ready`。
 /// - 错误：`LibraryNotLoaded`（版本断言失败）、`ModelCreateFailed`（模型字节非法）、
-///   `InterpreterCreateFailed`（options/线程数非法或创建失败）、`NullHandle`、
-///   `UnsupportedDtype`（`allow_fp16 = false` 且模型含 Float16 张量）。
+///   `InterpreterCreateFailed`（options/线程数非法或创建失败）、
+///   `AllocateTensorsFailed`（创建后首次 `AllocateTensors` 失败；real 必需）、
+///   `NullHandle`、`UnsupportedDtype`（`allow_fp16 = false` 且模型含 Float16 张量）。
 /// - 线程：调用线程本地；返回值可由其它线程持有，但 `invoke` 必须串行化。
 pub fn Interpreter::from_bytes(
   model_bytes : Bytes,
@@ -227,6 +228,15 @@ pub fn Interpreter::from_bytes(
     raise InterpreterCreateFailed(-1)
   }
   errdefer mb_tfl_interpreter_delete(interp_h)
+  // R4 修复（2026-11-09）：real TFLite 的 `TfLiteInterpreterCreate` **不会**
+  // 自动分配张量缓冲，必须显式 `AllocateTensors` 后才能 copy/invoke；stub 的
+  // interpreter_create 内部已分配，重复 allocate 幂等。此前 real 路径在
+  // golden real / CLI 首次 set_input 时因 `tensor->data.raw == NULL` 访问冲突
+  // （0xC0000005）崩溃；这里统一完成「from_bytes 隐式首次分配」语义。
+  let alloc_code = mb_tfl_allocate_tensors(interp_h)
+  if alloc_code != 0 {
+    raise AllocateTensorsFailed(alloc_code)
+  }
   let input_count = mb_tfl_input_count(interp_h)
   let output_count = mb_tfl_output_count(interp_h)
   // 校验全部张量 dtype；Float16 需显式 allow_fp16

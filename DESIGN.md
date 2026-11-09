@@ -187,6 +187,7 @@ real 强制失败**不回退**（resolved=none，shim 全部显式失败）；au
 | 语义点 | stub（STF1） | real（TFLite TFL3） |
 |---|---|---|
 | 模型格式 | **STF1**（自研格式，见 stub/README.md） | **TFLite flatbuffer（TFL3）**，**不可混用** |
+| `from_bytes` 首次分配 | `interpreter_create` 内部已分配；`from_bytes` 再调 allocate 幂等 | **必需**：`TfLiteInterpreterCreate` 不分配，`from_bytes` 内显式 `AllocateTensors`（失败 → `AllocateTensorsFailed`；2026-11-09 真实库实跑修复） |
 | invoke 前输出清零 | **保证**（allocate 时 calloc 零初始化） | 不保证（取决于内核实现） |
 | 状态码 2（NOT_ALLOCATED） | 支持（resize 后未 allocate） | **仅 0/1**（real TfLiteStatus 非 0 一律折叠为 1） |
 | STF1 动态维（输出 dim `-1` 镜像 input 0） | 支持 | 不适用（TFL3 用 shape_signature） |
