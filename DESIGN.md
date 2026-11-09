@@ -3,7 +3,7 @@
 > API 冻结前 P0 整改轮 / 2026-11-07；**R4 增量实现轮 / 2026-11-09 更新**：状态
 > **实现完成**（桌面确定性 C stub 双路径，stub 为 CI 默认后端；R4 公开
 > `resize_input` / `allocate_tensors` 动态形状 API，追加 Q10 矩阵）。`moon clean` /
-> `moon check --deny-warn` / `moon build` / `moon test`（**48 tests**）/
+> `moon check --deny-warn` / `moon build` / `moon test`（**49 tests**）/
 > `moon fmt --check` 五道门禁全绿；另 2 个 `golden real` 按真实库就位情况
 > SKIPPED/联跑（不计通过）。
 > 真实 `libtensorflowlite_c` 对接与数值对齐留待真实库对接阶段；**冻结前公开面只做三类变化**：
@@ -104,13 +104,14 @@ tensorflowlite_c.so / c_api.h
 | 层次 | 内容 |
 |---|---|
 | 黑盒（12） | `from_bytes → set_input → invoke → output_raw/output_desc → close` 全链路；重复 close；越界 `TensorIndex`；缓冲长度不符；fp16/量化快照；错误映射；状态机经只读访问器 `state()` 观测 |
-| 白盒（9） | status code → `TfLiteError` 映射；`NullHandle`；`ensure_open` 守卫；dtype 编码表；版本断言；`mb_tfl_resize_input` / `mb_tfl_allocate_tensors` 直调（shim 私有化 + R4 恢复正名） |
+| 白盒（10） | status code → `TfLiteError` 映射；`NullHandle`；`ensure_open` 守卫；dtype 编码表；版本断言；`mb_tfl_resize_input` / `mb_tfl_allocate_tensors` 直调；R4 公开 `resize_input` 错误路径原子性（非法 dims 不改变形状） |
+| golden tflite（3） | 自产 TFL3 模型 SHA-256 登记 + 独立 flatbuffer 解析 + STF1 镜像 stub 数值黄金（`real_golden_test.mbt`；另 2 个 `golden real*` 需真实库） |
 | 后端场景（10） | F1/F2/F3、auto 回退、real 强制双断言、reset 守卫、env 契约（见 `backend_wbtest.mbt`） |
 | R4 动态形状（8，黑盒） | `resize_allocate_test.mbt`：resize→allocate 全链路、未 allocate 状态码 2、分配前后尺寸不匹配、负/零/空/rank>8、越界 index、close 后、rank 冲突、幂等 allocate |
 | Q10 算子矩阵（6，黑盒） | `q10_coverage_test.mbt`：TFL3 算子枚举、矩阵 real 侧 pending、stub 拒 TFL3、6 dtype、未知 dtype、STF1 无算子表（见 `Q10-OPERATOR-COVERAGE.md`） |
 | 真实库对接目标 | 224×224 分类模型与 Python `tflite-runtime` 逐元素误差 < 1e-4（真实库对接后） |
 | 平台 | 桌面 x86-64 先验证；上板测 armv7/arm64 与帧率预算 |
-| 门禁 | `moon clean` → `moon check --deny-warn` → `moon build` → `moon test`（48/48）→ `moon fmt --check`（R4 实跑，全部 exit 0；第 5 道快照门禁另计） |
+| 门禁 | `moon clean` → `moon check --deny-warn` → `moon build` → `moon test`（49/49）→ `moon fmt --check`（R4 实跑，全部 exit 0；第 5 道快照门禁另计） |
 
 ## 11. 验收标准
 

@@ -2,7 +2,7 @@
 
 **TensorFlow Lite / LiteRT C API 封装 —— 模型加载、张量读写、invoke 与输出读取的纯推理运行时绑定。**
 
-> 状态（**R4 增量实现轮**，2026-11-09）：**实现完成**——4 个 `#external` 句柄、**17 个包私有 `extern "C"` shim**、值类型与错误模型，MoonBit 侧 **8 个公开方法 + 3 个只读访问器**（R4 新增 `resize_input` / `allocate_tensors`）均为真实实现，由 `stub/mb_tfl_stub.c`（`native-stub`，**CI 默认后端**）提供桌面确定性 C 实现。**无 `declare` 存根、无 `0068`**；五道门禁（`moon clean` / `moon check --deny-warn` / `moon build` / `moon test` / `moon fmt --check`）实跑全绿，**48 个测试全过**。
+> 状态（**R4 增量实现轮**，2026-11-09）：**实现完成**——4 个 `#external` 句柄、**17 个包私有 `extern "C"` shim**、值类型与错误模型，MoonBit 侧 **8 个公开方法 + 3 个只读访问器**（R4 新增 `resize_input` / `allocate_tensors`）均为真实实现，由 `stub/mb_tfl_stub.c`（`native-stub`，**CI 默认后端**）提供桌面确定性 C 实现。**无 `declare` 存根、无 `0068`**；五道门禁（`moon clean` / `moon check --deny-warn` / `moon build` / `moon test` / `moon fmt --check`）实跑全绿，**49 个测试全过**。
 > `preferred_target = "native"`（native 目标选型理由见 `DECISIONS.md` §1）。真实 `libtensorflowlite_c` 对接与数值对齐留待**真实库对接阶段**（stub/real 双路径机制见 `DECISIONS.md` §2），本库不引入任何外部库、不破坏 stub 双路径。
 
 ## 定位与为什么存在
@@ -42,7 +42,7 @@
 
 - **stub 后端（P0 整改轮基线）**：21 个测试（12 黑盒 + 9 白盒）覆盖全链路、错误映射、状态机、dtype/版本断言与 shim 语义。
 - **双路径落地后**：34 个测试全过（含后端场景测试与 golden tflite 类数值黄金）+ 2 个 `golden real` 类 `#skip` 用例在无真实库时 SKIPPED 不计通过（fail-closed，见 `tests/fixtures/golden/ASSETS.md` §4）。
-- **R4（2026-11-09，当前）**：**48 个测试全过** = 双路径 34 + `resize_allocate_test.mbt` 8 + `q10_coverage_test.mbt` 6；另 2 个 `golden real` 按真实库就位情况 SKIPPED/联跑。
+- **R4（2026-11-09，当前）**：**49 个测试全过** = 双路径 34 + `resize_allocate_test.mbt` 8 + `q10_coverage_test.mbt` 6 + 白盒 resize 错误路径 1；另 2 个 `golden real` 按真实库就位情况 SKIPPED/联跑。
 - **真实库（2026-11-09）**：win-x64 `tensorflowlite_c.dll` 由官方源码 v2.14.0 本地构建成功（`.local/tflite/win-x64/`，SHA-256 + PROVENANCE，**未入库**）；`moon test --include-skipped -f "golden real*"` **2/2 通过**（真实后端）；Python `tflite-runtime` 对齐仍 `[仍需实测]`（本机无该包）。详见 `GAPS.md`。
 - **真实库对接目标**：桌面 `.so` 跑 224×224 分类模型，与 Python `tflite-runtime` 逐元素误差 < 1e-4；重复 `close` / 空句柄 / 缓冲长度不足 / status code 非 0 的错误路径；`moon test --enable-coverage`。
 - **验收标准**：分类模型跑通且数值对齐；`Interpreter::close` **不会二次释放，重复调用返回明确错误**；所有 C status code 转成 `TfLiteError` 而非 panic（✅ stub 下已达成）。
@@ -58,7 +58,7 @@
 | `pkg.generated.mbti` API 快照 | ✅ 由 `moon check`/`moon build` 自动同步（未手工编辑快照，审阅由维护流程统一执行） |
 | stub/real 双路径切换层（`native/mb_tfl_dispatch.c` 等） | ✅（`DECISIONS.md` §2） |
 | 真实 `libtensorflowlite_c` 链接 / 数值对齐 / 上板 | ⏳ 真实库对接阶段（缺口登记见 `GAPS.md`） |
-| 五道门禁（clean / check --deny-warn / build / test / fmt --check） | ✅ 全绿（P0 整改轮 21/21；双路径后 34/34；R4 48/48 + 2 golden real SKIPPED） |
+| 五道门禁（clean / check --deny-warn / build / test / fmt --check） | ✅ 全绿（P0 整改轮 21/21；双路径后 34/34；R4 49/49 + 2 golden real SKIPPED） |
 
 ## 冻结前 P0 变更摘要（API 冻结前准备）
 
@@ -78,14 +78,15 @@
 | 黑盒 → 白盒迁移（0 净变化） | ±4 | `resize_input and allocate_tensors flow` / `ops before allocate after resize fail` / `allocate_tensors fails on rank conflict` / `resize_input rejects invalid dims`（shim 私有化后黑盒不可直调；迁移时按白盒惯例复制 STF1 夹具辅助） |
 | 最终 | **21** | 12 黑盒 + 9 白盒（`moon test`：`Total tests: 21, passed: 21, failed: 0`） |
 
-### R4 测试增量（21 → 48；基线 34 → 48）
+### R4 测试增量（21 → 49；基线 34 → 49）
 
 | 变化 | 数量 | 用例文件 |
 |---|---|---|
 | 双路径落地（R3 基线） | +13 | 后端场景（10）、golden tflite 类（3）等；`Total tests: 34` |
 | R4 resize/allocate 公开面 | +8 | `resize_allocate_test.mbt`：resize→allocate 全链路、未 allocate 的 2（NOT_ALLOCATED）、分配前后尺寸不匹配、负/零/空/rank>8、越界 index、close 后、rank 冲突、幂等 allocate |
 | R4 Q10 算子矩阵 | +6 | `q10_coverage_test.mbt`：TFL3 算子枚举、矩阵 pending 状态、stub 拒 TFL3、6 dtype、未知 dtype、STF1 无算子表 |
-| 当前 | **48** | `moon test`：`Total tests: 48, passed: 48, failed: 0`；另 2 个 `golden real` `#skip` |
+| R4 白盒 resize 错误路径 | +1 | `tflite_ffi_wbtest.mbt`：非法 dims 不改变既有形状（原子性）、allocate 后动态输出镜像 |
+| 当前 | **49** | `moon test`：`Total tests: 49, passed: 49, failed: 0`；另 2 个 `golden real` `#skip` |
 
 ## 文档索引
 

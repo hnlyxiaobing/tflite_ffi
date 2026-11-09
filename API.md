@@ -196,7 +196,7 @@ allocate 幂等。此前 `from_bytes` 未调用 allocate，real 路径首次 `se
 | `moon clean` | ✅ exit 0 |
 | `moon check --deny-warn` | ✅ exit 0（0 error / 0 warning，无 `0068`、无 `unused_value`） |
 | `moon build` | ✅ exit 0（链接 `stub/mb_tfl_stub.c`，无外部库） |
-| `moon test` | ✅ exit 0，R4 实跑 **48 tests 全过**（黑盒 + 白盒；含 resize/allocate 8 个错误路径用例与 Q10 6 个算子矩阵用例） |
+| `moon test` | ✅ exit 0，R4 实跑 **49 tests 全过**（黑盒 + 白盒；含 resize/allocate 8 个错误路径用例、Q10 6 个算子矩阵用例与 1 个 resize 白盒错误路径用例） |
 | `moon fmt --check` | ✅ exit 0 |
 
-真实 `libtensorflowlite_c` 对接与数值对齐（<1e-4）留待**真实库对接阶段**；本库保持项目内 C stub 双路径（`DECISIONS.md` §2），stub 为 CI 默认后端。双路径落地时 34 个测试全过 + 2 个 `golden real` 类 SKIPPED（无真实库，不计通过）；R4（2026-11-09）追加 resize/allocate 8 个与 Q10 6 个用例后为 **48 个全过 + 2 个 `golden real` SKIPPED**。真实库获取结果与证据等级以 `GAPS.md` 为准（未取得时不得写成通过）。
+真实 `libtensorflowlite_c` 对接与数值对齐（<1e-4）留待**真实库对接阶段**；本库保持项目内 C stub 双路径（`DECISIONS.md` §2），stub 为 CI 默认后端。双路径落地时 34 个测试全过 + 2 个 `golden real` 类 SKIPPED（无真实库，不计通过）；R4（2026-11-09）追加 resize/allocate 8 个、Q10 6 个与 resize 白盒 1 个用例后为 **49 个全过 + 2 个 `golden real` SKIPPED**。真实库获取结果与证据等级以 `GAPS.md` 为准（未取得时不得写成通过）。

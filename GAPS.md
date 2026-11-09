@@ -49,7 +49,7 @@
   MoonBit `from_bytes` 之前直接 `set_input`，real 路径在 `TfLiteTensorCopyFromBuffer`
   写 `tensor->data.raw == NULL` 时崩溃（Windows `0xC0000005`，golden real/CLI 均复现）。
   修复：`from_bytes` 在创建解释器后显式调用 `mb_tfl_allocate_tensors`，失败抛
-  `AllocateTensorsFailed`（stub 侧重复 allocate 幂等，48 个既有/新增用例零回归）。
+  `AllocateTensorsFailed`（stub 侧重复 allocate 幂等，49 个既有/新增用例零回归）。
   修复后：golden real 2/2、CLI `--backend real` 全链路均通过。
 
 ## 缺口清单
@@ -67,7 +67,7 @@
   `stub/mb_tfl_stub.c`，40/40 冒烟检查通过（F1/F2/F3、real 强制哨兵、auto 回退、
   mock 库成功加载、resize/allocate/invoke、tensor_meta、reset 守卫）；详见
   `POSIX-REVIEW.md`。**边界**：不是 `moon test`、不是真实 `.so`、不是 Android。
-- [ ] **Linux CI / Android POSIX 实跑**：Linux runner 上 `moon test` 全量（48 用例，
+- [ ] **Linux CI / Android POSIX 实跑**：Linux runner 上 `moon test` 全量（49 用例，
   `native-stub` 多文件 gcc 链接）与 Android armv7/arm64 `dlopen` 仍未实测 →
   `[仍需实测]`。放行条件：Linux x86-64 `moon test` 全绿 + 目标设备三场景复跑。
 - [ ] **Q10 real 侧算子覆盖**：目标模型（MoveNet 等）真实算子集合与真实库内核
@@ -81,7 +81,7 @@
 
 ## 运行路径结论
 
-- **stub 路径（默认）**：全绿 **48/48**（2026-11-09 实跑）；三场景（路径不存在/
+- **stub 路径（默认）**：全绿 **49/49**（2026-11-09 实跑）；三场景（路径不存在/
   损坏映像/加载失败注入）全绿。
 - **real 路径（win-x64）**：真实库已取得并本地链接；`golden real` 2/2、CLI
   `--backend real --model micro_mul_f32.tflite` 全链路通过；`from_bytes` 隐式首次

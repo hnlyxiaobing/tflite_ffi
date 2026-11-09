@@ -316,6 +316,29 @@ test "wb allocate_tensors fails on rank conflict" {
 }
 
 ///|
+/// R4：公开 `resize_input` 的白盒错误路径——非法 dims 必须在触达后端前被拒，
+/// 且**不改变**既有形状（原子性）；合法 resize 后内部 descriptor 同步，
+/// `allocate_tensors` 后动态输出维镜像 input 0。
+test "wb public resize_input validates dims atomically" {
+  let interp = Interpreter::from_bytes(wb_model_dynamic(), wb_opts())
+  interp.resize_input(0, [2, 4])
+  let d1 = tensor_desc_of(interp.interp, 0, false)
+  assert_eq([2, 4], d1.shape)
+  let neg : Array[Int32] = [1, -2]
+  let e1 = expect_err(() => interp.resize_input(0, neg))
+  assert_true(e1 is TfLiteError::ResizeFailed(1, _))
+  let d2 = tensor_desc_of(interp.interp, 0, false)
+  assert_eq([2, 4], d2.shape) // 被拒绝的 resize 不改变形状
+  let zero : Array[Int32] = [0, 4]
+  let e2 = expect_err(() => interp.resize_input(0, zero))
+  assert_true(e2 is TfLiteError::ResizeFailed(1, _))
+  interp.allocate_tensors()
+  let out = tensor_desc_of(interp.interp, 0, true)
+  assert_eq([2, 4], out.shape) // 输出动态维镜像 input 0
+  interp.close()
+}
+
+///|
 test "wb resize_input rejects invalid dims" {
   let interp = Interpreter::from_bytes(wb_model_f32(), wb_opts())
   let empty : FixedArray[Int32] = []
