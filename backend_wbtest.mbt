@@ -1,7 +1,7 @@
-// WP-1 双路径后端白盒场景测试（契约 §1「三场景可测」+ §2 白盒钩子；
-// 主控 2026-11-08 裁决：三场景与 real 强制断言一律双断言）。
+// 双路径后端白盒场景测试（`DECISIONS.md` §2「三场景可测」+ 白盒钩子；
+// 断言纪律（2026-11-08 裁决）：三场景与 real 强制断言一律双断言）。
 //
-// 用例名统一 "backend scenario ..." 前缀（WP-4 harness 约定）。
+// 用例名统一 "backend scenario ..." 前缀（golden/场景链过滤约定）。
 // 三场景（无真实库也全绿）：①路径不存在 ②损坏映像（@fs.tmpdir() 程序生成
 // 垃圾字节，不入库）③加载失败走白盒故障注入 force_fail(1|2|3)。
 // auto 下断言：进程存活、backend_name()=="stub"、STF1 可用、backend_info()
@@ -13,7 +13,7 @@
 // 一律还原 env 与解析状态。
 
 ///|
-/// UTF-8 路径字节（_tfl_backend_reset 的 path 契约为 UTF-8）。
+/// UTF-8 路径字节（_tfl_backend_reset 的 path 语义为 UTF-8）。
 fn bs_utf8(s : String) -> Bytes {
   @utf8.encode(s)
 }

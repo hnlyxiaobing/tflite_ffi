@@ -1,4 +1,4 @@
-﻿# gen-micro-model.ps1 — 自产微型模型生成器（WP-1，2026-11-08，契约 §4）
+# gen-micro-model.ps1 — 自产微型模型生成器（2026-11-08；数据口径见 tests/fixtures/golden/ASSETS.md）
 #
 # 【产物】（零入库；默认写入 tflite_ffi/.local/models/，.local/ 已被 .gitignore 覆盖）
 #   micro_mul_f32.tflite — 真实 TFLite flatbuffer（TFL3，real 后端用）

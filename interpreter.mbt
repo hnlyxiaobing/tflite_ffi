@@ -17,7 +17,7 @@ let expected_capi_version : Int32 = 0x00010001
 
 ///|
 /// 内部 ABI：句柄存活探测（`stub/` 私有符号，不属于 API.md 的 17 个
-/// `mb_tfl_*` shim，不出现在 `pkg.generated.mbti`）。R2 对接真实 `c_api.h` 时映射到空指针检查。
+/// `mb_tfl_*` shim，不出现在 `pkg.generated.mbti`）。真实库对接时映射到空指针检查。
 extern "C" fn stub_model_alive(model : TfLiteModelRaw) -> Int32 = "tflite_ffi_private_model_alive"
 
 ///|

@@ -1,6 +1,7 @@
 # tests/fixtures/micro/ — 自产微型模型资产登记（ASSETS.md）
 
-> WP-1（2026-11-08，契约 §4/D3）。**零入库**：`.tflite` / `.stf1` 二进制不进仓库
+> （2026-11-08；数据口径见 `../golden/ASSETS.md` §1，零入库红线见 `../../DECISIONS.md` §3）。
+> **零入库**：`.tflite` / `.stf1` 二进制不进仓库
 > （生成到 `tflite_ffi/.local/models/` 或 `@fs.tmpdir()`，`.local/` 已被 .gitignore
 > 覆盖）。本目录只登记**生成方式 / SHA-256 / 许可**；测试内嵌生成器重建字节并
 > 断言 SHA-256 == 本表登记值（`real_golden_test.mbt` 用例
@@ -13,7 +14,7 @@
 | `micro_mul_f32.tflite` | 496 | `ba0f234cfc6b8593835c0882b8172945641262f5ca57b8a95e502a652163fb3c` |
 | `micro_mul_f32.stf1` | 81 | `82351c2de386dc8b3d628994b7a371bfe290bb0d77796d464fefa97016c3d1ab` |
 
-## micro_mul_f32 语义（契约 §4）
+## micro_mul_f32 语义（冻结数据口径）
 
 - 输入 `"in"` f32 `[1,4]`；常量 `"w"` f32 `[4] = [0.5, 1.0, 2.0, -1.0]`；
   单 MUL(builtin=18) → 输出 `"out"` f32 `[1,4]`。
@@ -23,7 +24,7 @@
   scale=1.0 恒等——STF1 仅支持标量 scale 逐元素缩放，无法表达 MUL 权重的
   逐元素语义；语义差异见 DESIGN.md §14「双路径语义差异登记」。
 
-## 测试向量（golden hex 登记，与 WP-4 `tests/fixtures/golden/micro_mul_f32.numeric.norm.txt` 一致）
+## 测试向量（golden hex 登记，与 `../golden/micro_mul_f32.numeric.norm.txt` 一致）
 
 | 向量 | 输入（f32 hex） | MUL 期望（f32 hex） | 说明 |
 |---|---|---|---|
@@ -32,7 +33,7 @@
 
 STF1 镜像（scale=1.0 恒等）期望：V1/V2 输出 = 各自输入 hex。
 
-数值容差（契约 §4 冻结，逐元素 f32）：`|got − want| ≤ 1e-6 + 1e-5 × |want|`
+数值容差（冻结，逐元素 f32）：`|got − want| ≤ 1e-6 + 1e-5 × |want|`
 （f64 比较；NaN=NaN bit 相等；±0 等价；Inf bit 相等）。容差超限=失败，不得放宽。
 
 ## 生成方式

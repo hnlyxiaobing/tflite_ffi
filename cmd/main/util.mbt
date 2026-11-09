@@ -1,5 +1,5 @@
 ///|
-/// WP-3 tflite-cli 公共辅助：帮助文本拼接、十六进制渲染、f32 解码、
+/// tflite-cli 公共辅助：帮助文本拼接、十六进制渲染、f32 解码、
 /// 形状/dtype 渲染、正整数解析。仅使用 moonbitlang/core 与内置类型；
 /// 不依赖外部库，不触碰 tflite_ffi 库内部 ABI。
 

@@ -1,18 +1,18 @@
-﻿# get-tflite.ps1 — 真实 tensorflowlite_c 获取脚本（WP-1，2026-11-08，契约 §3/D2）
+# get-tflite.ps1 — 真实 tensorflowlite_c 获取脚本（2026-11-08；获取链 D2，见 ../DECISIONS.md §2/§3）
 #
-# 【获取顺序（契约 D2 冻结）】
+# 【获取顺序（D2 冻结）】
 #   ① 本地探测：MB_TFLITE_LIB_PATH -> .local/tflite/<platform>/ 缓存
 #      -> D:\Android\Sdk -> %USERPROFILE%\.gradle\caches（含 org.tensorflow AAR 内
 #      的 libtensorflowlite_c.so 提取）
 #   ② 官方可验证渠道：仅限官方发布物（Android 各平台走 Google Maven
 #      org.tensorflow/tensorflow-lite AAR；win-x64/linux-x64 无官方预编译
-#      tensorflowlite_c -> 按契约「无则跳过，禁止第三方构建/镜像」）
+#      tensorflowlite_c -> 按冻结规则「无则跳过，禁止第三方构建/镜像」）
 #   ③ 官方源码最小构建：tensorflow 官方 tag 钉版、CMake 目标 tensorflowlite_c、
 #      MSVC（限时约 40 分钟由调用方后台任务控制；超时/失败 -> ④）
 #   ④ fail-closed：GAPS.md 缺口登记 + 接线完备（dispatch 已支持 stub 唯一运行
 #      路径）+ 脚本保留，exit 3
 #
-# 【接口（契约 §3 冻结）】
+# 【接口（冻结）】
 #   [-Platform win-x64|linux-x64|android-arm64|android-armv7] [-Version <tag>]
 #   [-LibPath <path>] [-TargetDir <dir>] [-Offline] [-VerifyOnly]
 #   默认 TargetDir = tflite_ffi/.local/tflite/<platform>/

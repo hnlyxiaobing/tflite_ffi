@@ -1,7 +1,7 @@
 ///|
 /// tflite-cli：Tensor Lite 双路径（stub/real）演示/诊断 CLI
-/// （hnlyxiaobing/tflite_ffi 公开 API 驱动；wp1-contract §6 接线）。
-/// 契约（wp1-contract D6）：退出码 0=成功 / 1=运行失败（模型解析/推理/real 强制不可用）/
+/// （hnlyxiaobing/tflite_ffi 公开 API 驱动）。
+/// 退出码约定：0=成功 / 1=运行失败（模型解析/推理/real 强制不可用）/
 /// 2=用法错误；`--backend` 先经 `@env.set_env_var` 写入 MB_TFLITE_BACKEND 再触发
 /// 首次库调用（一次性解析在库层）；后端/回退信息走 `--info` 文本，不用退出码区分。
 
@@ -45,7 +45,7 @@ async fn read_model(path : String) -> (Bytes, Bool) {
 }
 
 ///|
-/// `Interpreter::from_bytes` 尝试包装（wp1-contract §6 冻结调用形态）：
+/// `Interpreter::from_bytes` 尝试包装（冻结调用形态）：
 /// 失败打印 `error: 模型加载失败：…`（real 强制不可用时含 LibraryNotLoaded 原因）
 /// 并返回 None，由调用方按退出码 1 收口。
 fn try_from_bytes(
@@ -150,7 +150,7 @@ fn try_close(interp : @tflite_ffi.Interpreter) -> Bool {
 
 ///|
 /// `--model` 演示链路：加载 → 演示喂入 → invoke → 描述+数值输出 → close。
-/// 任一环节失败按 D6 返回 1；成功输出记录行并返回 0。
+/// 任一环节失败按退出码约定返回 1；成功输出记录行并返回 0。
 async fn run_model(path : String, threads : Int32) -> Int32 {
   let (data, ok) = read_model(path)
   if !ok {
@@ -229,7 +229,7 @@ async fn run_model(path : String, threads : Int32) -> Int32 {
 }
 
 ///|
-/// 参数解析与主流程。env 写入必须先于任何库调用（wp1-contract §6/D5：
+/// 参数解析与主流程。env 写入必须先于任何库调用（切换约定（`DECISIONS.md` §2）：
 /// 切换走 MB_TFLITE_BACKEND/MB_TFLITE_LIB_PATH，`--backend`/`--lib` 是其 CLI 面）。
 async fn cmd(rest : ArrayView[String]) -> Int32 {
   let mut model_path = ""
@@ -305,7 +305,7 @@ async fn cmd(rest : ArrayView[String]) -> Int32 {
     return 2
   }
   // 后端解析是进程级一次性；env 写入必须先于 backend_name()/from_bytes 首次调用。
-  // 取值优先级：--backend > 合法 MB_TFLITE_BACKEND > CLI 默认 auto（D1）。
+  // 取值优先级：--backend > 合法 MB_TFLITE_BACKEND > CLI 默认 auto。
   let mut backend_eff = "auto"
   if backend != "" {
     backend_eff = backend

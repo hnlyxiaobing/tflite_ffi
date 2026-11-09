@@ -1,7 +1,7 @@
 # tflite_ffi · 公开 API（API.md）
 
-> 与 `pkg.generated.mbti` 快照一致（快照由 `moon check` / `moon build` 自动同步；本轮**未运行 `moon info`、未手工编辑快照**，最终快照审阅由主控统一执行）。
-> 状态（R2 冻结前 P0 整改轮，2026-11-07）：**全部函数为真实实现**（无 `declare` 存根、无 `0068`）；`extern "C"` shim 由 `stub/mb_tfl_stub.c`（`native-stub`，CI 默认后端）提供，`moon check --deny-warn` / `moon build` / `moon test` / `moon fmt --check` 全绿。
+> 与 `pkg.generated.mbti` 快照一致（快照由 `moon check` / `moon build` 自动同步；**未手工编辑快照**，快照审阅由维护流程统一执行）。
+> 状态（API 冻结前 P0 整改轮，2026-11-07）：**全部函数为真实实现**（无 `declare` 存根、无 `0068`）；`extern "C"` shim 由 `stub/mb_tfl_stub.c`（`native-stub`，CI 默认后端）提供，`moon check --deny-warn` / `moon build` / `moon test` / `moon fmt --check` 全绿。
 > `preferred_target = "native"`。错误传播统一 `raise TfLiteError`。
 
 ## 外部句柄（`#external` = C `void*`，MoonBit 不引用计数，永不跨模块传递）
@@ -21,7 +21,7 @@
 > （仅白盒测试的 2 个调用点随绑定名同步更新，见下）。
 > **决策 9（数量修正）**：原文档写 15，实际为 **17**——原文把 `input_count`/`output_count`、
 > `input_tensor`/`output_tensor` 各合并成一行，15 行其实对应 17 个符号；本表已拆为一行一符号。
-> 以源码与快照为准：R1 快照恰有 17 个 `mb_tfl_*` 导出。
+> 以源码与快照为准：冻结前快照恰有 17 个 `mb_tfl_*` 导出。
 
 | shim 签名（`extern "C" fn ... = "同名符号"`，均无 `pub`） | 所有权标注 | C 侧语义 |
 |---|---|---|
@@ -48,7 +48,7 @@
 > 私有函数报为 `unused_value`。故 MoonBit 侧绑定名写作 `_mb_tfl_resize_input` /
 > `_mb_tfl_allocate_tensors`（**C 符号字符串 `= "mb_tfl_resize_input"` / `= "mb_tfl_allocate_tensors"`
 > 与签名零改动**，调用点在白盒测试 `tflite_ffi_wbtest.mbt`，与包内调用同步更新）。
-> R2 若暴露 MoonBit 层 resize API，去掉下划线前缀即恢复正名。
+> 后续若暴露 MoonBit 层 resize API，去掉下划线前缀即恢复正名。
 >
 > 另有 4 个**私有内部 ABI** 符号（`tflite_ffi_private_{model,options,interp}_alive`、
 > `tflite_ffi_private_tensor_meta`，声明于 `interpreter.mbt`），本就不属于公开面，未做改动。
@@ -61,9 +61,9 @@
 
 > 原 `InferenceRuntime`(trait) 已于冻结前 P0 **删除**（决策 2），见下节。
 
-## 冻结前追认记录（R2 准备轮 · 加法性追认）
+## 冻结前追认记录（API 冻结前 · 加法性追认）
 
-以下三项经核对**源码现状已符合**，仅在本轮文档中追认（冻结后即为契约）：
+以下三项经核对**源码现状已符合**，仅在本文件中追认（冻结后即为契约）：
 
 | 项 | 现状（源码） | 追认说明 |
 |---|---|---|
@@ -97,11 +97,11 @@ MoonBit **没有字段级可见性修饰符**：`pub(all) struct` 会把 `mut st
 
 `pub(open) trait InferenceRuntime { fn invoke(Self) -> Unit raise TfLiteError; fn output_count(Self) -> Int32 }`
 已删除：唯一消费者是测试替身（外部实现测试随之删除），后端抽象由 `pose::PoseBackend`
-（`pub(open)`）承担，组合根适配模式不变（ADR-0004）。`Interpreter` 的公开方法零变化。
+（`pub(open)`）承担，组合根适配模式不变（`DECISIONS.md` §6）。`Interpreter` 的公开方法零变化。
 
-## WP-1 · stub/real 双路径与后端查询 API（加法性，2026-11-08）
+## stub/real 双路径与后端查询 API（加法性，2026-11-08）
 
-> 契约 §2 冻结：加法性公开 API **恰两条**，快照 diff 期望恰为
+> 双路径机制冻结（`DECISIONS.md` §2）：加法性公开 API **恰两条**，快照 diff 期望恰为
 > `// Values` 下 `backend_info` / `backend_name` 两行加法；其余冻结面零变化。
 > `interpreter.mbt` / `tflite_ffi.mbt` 零改动；17 个 shim 的 C 符号由
 > `native/mb_tfl_dispatch.c` 导出（stub/real 运行时路由，见 DESIGN.md §14）。
@@ -113,7 +113,7 @@ MoonBit **没有字段级可见性修饰符**：`pub(all) struct` 会把 `mut st
 | `pub fn backend_name() -> String` | `"stub"` \| `"real"` 稳定字面量；首次调用触发一次性解析；不抛错。`"real"` 当且仅当真实库加载成功并粘性路由到 real；其余（stub 活跃、auto 回退、real 强制失败）为 `"stub"` |
 | `pub fn backend_info() -> String` | key=value 行文本（LF/UTF-8，不抛错）：`mode`（stub\|real\|auto）、`resolved`（stub\|real\|none）、`lib_path`（UTF-8 路径，空=标准搜索）、`load_status`（ok\|F0\|F1\|F2\|F3；F0=未尝试真实加载）、`reason`（F 失败以 F 类标开头；非法 env 值含 `env_invalid`）、`tfl_version`、`schema_version` |
 
-### env 契约（契约 §1）
+### env 契约（`DECISIONS.md` §2）
 
 | 变量 | 语义 |
 |---|---|
@@ -124,7 +124,7 @@ MoonBit **没有字段级可见性修饰符**：`pub(all) struct` 会把 `mut st
 符号缺失/`TfLiteSchemaVersion` 不兼容）；F3=加载失败（依赖缺失等
 `LoadLibrary` 返回 NULL）。
 
-### 包私有白盒钩子（不进快照，契约 §2）
+### 包私有白盒钩子（不进快照，`DECISIONS.md` §2）
 
 | MoonBit 绑定 | C 符号 | 语义 |
 |---|---|---|
@@ -137,17 +137,18 @@ MoonBit **没有字段级可见性修饰符**：`pub(all) struct` 会把 `mut st
 ### shim 表修订（内部，无冻结面变化）
 
 17 个 `mb_tfl_*` shim 签名零改动；`stub/mb_tfl_stub.c` 的实现符号改名为
-`mb_tfl_stub_impl_*`（确定性语义零改动，契约 §3「仅内部符号改名」），由
+`mb_tfl_stub_impl_*`（确定性语义零改动，「仅内部符号改名」约定），由
 `native/mb_tfl_dispatch.c` 路由 stub/real。`mb_tfl_capi_version` 正常态恒返回
 shim ABI `0x00010001`（既有断言零改动）；「real 强制且加载失败」态返回负失败
 分类哨兵 -1/-2/-3（对应 F1/F2/F3），借既有版本断言让 `from_bytes` 显式抛
-`LibraryNotLoaded`——契约修订（主控 2026-11-08）裁决项，映射详见 DESIGN.md §14。
+`LibraryNotLoaded`——机制修订（2026-11-08 裁决）项，映射详见 DESIGN.md §14
+与 `DECISIONS.md` §2。
 
 ## 非目标
 
 预处理/后处理、模型下载、模型 zoo、量化决策、GPU/delegate、Extension/opaque API、`foreign_library` 导出。
 
-## 门禁与状态（R2 冻结前 P0 实跑）
+## 门禁与状态（P0 整改轮实跑）
 
 在 `tflite_ffi/` 依次实跑，全部 exit 0：
 
@@ -156,7 +157,7 @@ shim ABI `0x00010001`（既有断言零改动）；「real 强制且加载失败
 | `moon clean` | ✅ exit 0 |
 | `moon check --deny-warn` | ✅ exit 0（0 error / 0 warning，无 `0068`、无 `unused_value`） |
 | `moon build` | ✅ exit 0（链接 `stub/mb_tfl_stub.c`，无外部库） |
-| `moon test` | ✅ exit 0，**21 tests 全过**（12 黑盒 + 9 白盒；R1 基线 23，删除 2 个、迁入 4 个，见 README 测试数明细） |
+| `moon test` | ✅ exit 0，**21 tests 全过**（12 黑盒 + 9 白盒；基线 23，删除 2 个、迁入 4 个，见 README 测试数明细） |
 | `moon fmt --check` | ✅ exit 0 |
 
-真实 `libtensorflowlite_c` 对接与数值对齐（<1e-4）留待 **R2**；本轮保持项目内 C stub 双路径，stub 为 CI 默认后端。
+真实 `libtensorflowlite_c` 对接与数值对齐（<1e-4）留待**真实库对接阶段**；本库保持项目内 C stub 双路径（`DECISIONS.md` §2），stub 为 CI 默认后端。双路径落地后测试扩至 34 个全过 + 2 个 `golden real` 类 SKIPPED（无真实库，不计通过）。

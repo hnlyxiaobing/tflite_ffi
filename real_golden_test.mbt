@@ -1,16 +1,18 @@
-// WP-1 黑盒黄金测试（契约 §4 自产微型模型；WP-4 黄金链命名对齐指令 2026-11-08）。
+// 黑盒黄金测试（自产微型模型，数据口径见 tests/fixtures/golden/ASSETS.md；
+// 黄金链命名对齐 2026-11-08）。
 //
 // 两个用例前缀：
-//   "golden tflite"（非 #skip）—— 生成器字节重建 + SHA-256 登记断言（D3 证据链：
+//   "golden tflite"（非 #skip）—— 生成器字节重建 + SHA-256 登记断言（零入库证据链：
 //     测试内嵌生成器重建字节并断言 SHA-256 == ASSETS.md 登记值，模型二进制
-//     零入库）+ stub 侧 STF1 镜像数值黄金（WP-4 stub 链 `moon test -f "golden tflite"`）。
+//     零入库）+ stub 侧 STF1 镜像数值黄金（stub 链 `moon test -f "golden tflite*"`）。
 //   "golden real"（#skip）—— 真实后端 + micro_mul_f32.tflite（TFL3）数值黄金，
-//     WP-4 联跑 `moon test --include-skipped -f "golden real"`；首行断言
+//     联跑 `moon test --include-skipped -f "golden real*"`；首行断言
 //     backend_name()=="real"（不满足即 fail，绝不静默跳过）。CI 无真实库时
-//     默认 SKIPPED 不计通过（判例 axml/fixtures_test.mbt）。
+//     默认 SKIPPED 不计通过（#skip 用例不计入 Total tests，MoonBit 原生机制）。
 //
-// 数值容差（契约 §4 冻结，逐元素 f32）：|got − want| ≤ 1e-6 + 1e-5 × |want|
-// （f64 比较；NaN=NaN bit 相等；±0 等价；Inf bit 相等）。容差超限=失败，不得放宽。
+// 数值容差（冻结口径，逐元素 f32，见 tests/fixtures/golden/ASSETS.md §2）：
+// |got − want| ≤ 1e-6 + 1e-5 × |want|（f64 比较；NaN=NaN bit 相等；±0 等价；
+// Inf bit 相等）。容差超限=失败，不得放宽。
 //
 // 参考输出=独立解析计算：verify_micro_tflite 以内嵌 mini flatbuffer 解析器
 // 抽取常量 w 并校验 TFL3 结构，want = f32(f64(in) × f64(w))，与登记 hex 互证。
@@ -597,7 +599,7 @@ fn verify_micro_tflite(data : Bytes) -> Array[Double] raise {
 }
 
 ///|
-/// ---- f32 位级工具与容差谓词（契约 §4 冻结口径）----
+/// ---- f32 位级工具与容差谓词（冻结口径，见 tests/fixtures/golden/ASSETS.md §2）----
 fn f32_bits_of(b : Bytes, i : Int32) -> Int32 {
   b[i].to_int() |
   (b[i + 1].to_int() << 8) |
@@ -650,7 +652,7 @@ fn f32_bits_round(d : Double) -> Int32 {
 }
 
 ///|
-/// 容差谓词（契约 §4 冻结，逐字）：|got − want| ≤ 1e-6 + 1e-5 × |want|；
+/// 容差谓词（冻结，逐字）：|got − want| ≤ 1e-6 + 1e-5 × |want|；
 /// NaN=NaN bit 相等；±0 等价；Inf bit 相等。f64 比较。
 fn f32_close(got_bits : Int32, want_bits : Int32) -> Bool {
   let g = Float::reinterpret_from_int(got_bits).to_double()
@@ -666,7 +668,7 @@ fn f32_close(got_bits : Int32, want_bits : Int32) -> Bool {
   }
   let diff = if g > w { g - w } else { w - g }
   let abs_w = if w > 0.0 { w } else { 0.0 - w }
-  // 契约 §4 冻结口径：|got − want| ≤ 1e-6 + 1e-5 × |want|
+  // 冻结口径：|got − want| ≤ 1e-6 + 1e-5 × |want|
   diff <= 1.0e-6 + 1.0e-5 * abs_w
 }
 
@@ -694,7 +696,7 @@ fn assert_f32_vec_close(
 }
 
 ///|
-/// ---- 登记黄金（契约 §4 / WP-4 micro_mul_f32.numeric.norm.txt 对齐）----
+/// ---- 登记黄金（tests/fixtures/golden/micro_mul_f32.numeric.norm.txt 对齐）----
 /// V1=[1,2,3,4]×[0.5,1,2,-1]→[0.5,2,6,-4]（f32 精确）
 fn golden_v1_in() -> Array[Int32] {
   [0x3F800000, 0x40000000, 0x40400000, 0x40800000]
@@ -757,7 +759,7 @@ fn f32_le_bytes(bits : Array[Int32]) -> Bytes {
 
 ///|
 /// ---- golden tflite（非 #skip）----
-/// D3 证据链：测试内嵌生成器重建字节，断言 SHA-256 == ASSETS.md 登记值
+/// 零入库证据链：测试内嵌生成器重建字节，断言 SHA-256 == ASSETS.md 登记值
 /// （与 tools/gen-micro-model.ps1 产物逐字节一致；模型二进制零入库）。
 test "golden tflite micro model registry sha256" {
   let model = micro_mul_f32_tflite()
@@ -823,7 +825,7 @@ test "golden tflite stub mul_v2" {
 }
 
 ///|
-/// ---- golden real（#skip，WP-4 联跑 moon test --include-skipped -f "golden real"）----
+/// ---- golden real（#skip，联跑 moon test --include-skipped -f "golden real*"）----
 /// 首行断言 backend_name()=="real"：不满足即 fail，绝不静默跳过。
 #skip
 test "golden real micro_mul_f32 v1" {
