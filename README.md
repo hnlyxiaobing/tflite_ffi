@@ -88,6 +88,30 @@
 | R4 白盒 resize 错误路径 | +1 | `tflite_ffi_wbtest.mbt`：非法 dims 不改变既有形状（原子性）、allocate 后动态输出镜像 |
 | 当前 | **49** | `moon test`：`Total tests: 49, passed: 49, failed: 0`；另 2 个 `golden real` `#skip` |
 
+## CLI（`cmd/main`）用法
+
+`preferred_target = "native"`；模块内相对路径执行（`cd tflite_ffi`）：
+
+```bash
+moon run cmd/main --target native -- --model <path> [--backend stub|real|auto] [--lib <path>] \
+  [--threads N] [--info] [--input <file>] [--out-raw <dir>]
+```
+
+| 开关 | 语义 | 缺省 |
+|---|---|---|
+| `--model` | 模型文件（stub 后端=STF1；real 后端=TFLite flatbuffer，不可混用） | 必填（或只给 `--info`） |
+| `--backend` | 后端选择，写入 `MB_TFLITE_BACKEND` 后生效 | `auto`（优先 real，失败回退 stub） |
+| `--lib` | 真实库路径，写入 `MB_TFLITE_LIB_PATH` | 标准搜索 |
+| `--threads` | 解释器线程数（正整数） | `1` |
+| `--info` | 打印 `backend_name=` 与 `backend_info()` 的 `mode/resolved/lib_path/load_status/reason/tfl_version/schema_version` | 关 |
+| `--input <file>` | 把文件字节**原样** `set_input(0, bytes)`（不做类型解释）；字节数与张量不符时由既有 `set_input` 抛 `BufferSizeMismatch(expected, got)`，退出码 `1` | 内置 `1.0f32` 演示喂入（行为不变） |
+| `--out-raw <dir>` | 每个输出张量原始字节写到 `<dir>/out<i>.bin`，打印 `OUTRAW|i|path|bytes`；保留 `OUTDESC|`、**不再**逐值打印 `OUTDATA|` | 逐值打印 `OUTDATA|`（行为不变） |
+
+- 记录行：`MODEL|INPUTS|OUTPUTS|OUTDESC|INVOKE|OUTDATA`（或 `OUTRAW`）`|DONE`；错误一律走 stderr。
+- 退出码：`0` 成功 / `1` 运行失败（模型解析、推理、real 强制不可用）/ `2` 用法错误。
+- 这两个开关是**纯 CLI 面的加法**：不改任何库层公开签名，`pkg.generated.mbti` diff 为 ±0（`moon test` 仍 49/49）。
+- `--out-raw` 的存在理由（实测）：landmarker 有 638,976 个 f32 输出，逐值打印在 180 s 内打不完（`exit 124`）；改为落盘后同一模型 `0.157 s` 完成并 `exit 0`。脚本消费（如 `../tools/pose-replay.py`）应一律用 `--out-raw`。
+
 ## 文档索引
 
 `docs/DECISIONS.md`（设计决策记录）· `docs/DESIGN.md` · `docs/API.md` · `README.mbt.md` · `docs/GAPS.md`（缺口台账）· `docs/Q10-OPERATOR-COVERAGE.md`（Q10 算子覆盖矩阵）· `docs/POSIX-REVIEW.md`（POSIX dlopen 走查与 WSL 实跑）· `docs/LICENSE-AUDIT-Q4.md`（许可审计）· `stub/README.md`（STF1 格式）· `tests/fixtures/golden/ASSETS.md` / `tests/fixtures/micro/ASSETS.md`（数值黄金与模型资产登记）

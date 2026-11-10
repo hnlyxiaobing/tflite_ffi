@@ -16,6 +16,7 @@ fn usage_text() -> String {
     "",
     "用法:",
     "  \{tool_name} --model <path> [--backend stub|real|auto] [--lib <path>] [--threads N] [--info]",
+    "  \{tool_name} --model <path> [--input <file>] [--out-raw <dir>]",
     "  \{tool_name} [--backend stub|real|auto] [--lib <path>] --info",
     "      --model    模型文件（stub 后端=STF1；real 后端=TFLite flatbuffer；不可混用）",
     "      --backend  后端选择：stub（确定性内置）/ real（强制真实库）/ auto（优先 real，失败回退 stub）",
@@ -24,9 +25,14 @@ fn usage_text() -> String {
     "      --threads  解释器线程数（正整数，默认 1）",
     "      --info     打印 backend_name=<name> 与 backend_info()（key=value 行：mode/resolved/",
     "                 lib_path/load_status(ok|F0|F1|F2|F3)/reason/tfl_version/schema_version）",
+    "      --input    输入张量 0 的原始字节文件（原样写入，不做类型解释）；",
+    "                 缺省=内置 1.0f32 演示喂入（行为不变）。字节数与张量不符时由",
+    "                 set_input 报 BufferSizeMismatch(expected, got) 并以退出码 1 收口",
+    "      --out-raw  输出张量落盘目录：写 <dir>/out<i>.bin（原始字节），",
+    "                 只保留 OUTDESC| 行、不再逐值打印 OUTDATA|；缺省=逐值打印（行为不变）",
     "",
-    "演示链路: from_bytes → 演示喂入 → invoke → 输出描述+数值 → close。",
-    "输出: MODEL/INPUTS/OUTPUTS/OUTDESC/INVOKE/OUTDATA/DONE 记录行；错误信息一律 stderr。",
+    "演示链路: from_bytes → 喂入（--input 或内置演示）→ invoke → 输出描述+数值/落盘 → close。",
+    "输出: MODEL/INPUTS/OUTPUTS/OUTDESC/INVOKE/OUTDATA|OUTRAW/DONE 记录行；错误信息一律 stderr。",
     "退出码: 0=成功 1=运行失败（模型/推理/real 强制不可用） 2=用法错误",
   ])
 }
@@ -149,11 +155,71 @@ fn try_close(interp : @tflite_ffi.Interpreter) -> Bool {
 }
 
 ///|
-/// `--model` 演示链路：加载 → 演示喂入 → invoke → 描述+数值输出 → close。
+/// `--input` 原始字节读取：文件不存在或不可读 → 打印 `error:` 并返回 None
+/// （调用方按退出码 1 收口，不静默退回演示喂入）。
+async fn read_input_file(path : String) -> Bytes? {
+  if !@fs.exists(path) {
+    eprintln("error: 无法读取输入文件：\{path}")
+    return None
+  }
+  Some(@fs.read_binary(path))
+}
+
+///|
+/// `--out-raw` 目录准备：递归创建（已存在合法目录则复用）。
+/// 失败打印 `error:` 并返回 false。
+async fn prepare_out_dir(dir : String) -> Bool {
+  try {
+    @fs.mkdir(dir, recursive=true, allow_exist=true)
+    true
+  } catch {
+    e => {
+      eprintln("error: 无法创建输出目录：\{dir}（\{e}）")
+      false
+    }
+  }
+}
+
+///|
+/// 单个输出张量落盘：`<dir>/out<i>.bin`，成功打印 `OUTRAW|i|path|bytes`。
+/// 失败打印 `error:` 并返回 false。
+async fn write_out_raw(dir : String, index : Int32, data : Bytes) -> Bool {
+  let path = dir + "/out" + index.to_string() + ".bin"
+  try {
+    @fs.write_binary(path, data)
+    println("OUTRAW|\{index}|\{path}|\{data.length()}")
+    true
+  } catch {
+    e => {
+      eprintln("error: 输出落盘失败：\{path}（\{e}）")
+      false
+    }
+  }
+}
+
+///|
+/// `--model` 演示链路：加载 → 喂入（`--input` 文件或内置演示）→ invoke →
+/// 描述+数值输出（或 `--out-raw` 落盘）→ close。
 /// 任一环节失败按退出码约定返回 1；成功输出记录行并返回 0。
-async fn run_model(path : String, threads : Int32) -> Int32 {
+async fn run_model(
+  path : String,
+  threads : Int32,
+  input_path : String,
+  out_raw_dir : String,
+) -> Int32 {
   let (data, ok) = read_model(path)
   if !ok {
+    return 1
+  }
+  // 输入文件先读：缺失即 1，不进入加载/推理（fail-closed）。
+  let mut explicit_input : Bytes? = None
+  if input_path != "" {
+    match read_input_file(input_path) {
+      None => return 1
+      Some(b) => explicit_input = Some(b)
+    }
+  }
+  if out_raw_dir != "" && !prepare_out_dir(out_raw_dir) {
     return 1
   }
   let opts = @tflite_ffi.InterpreterOptions::{
@@ -177,14 +243,30 @@ async fn run_model(path : String, threads : Int32) -> Int32 {
     }
     i = i + 1
   }
-  // 演示喂入：以 1.0f32 位型平铺（仅演示；数值黄金在 moon test 冻结）
+  // 喂入：索引 0 优先用 --input 原始字节；其余输入（或未给 --input 时）
+  // 沿用 1.0f32 位型平铺演示喂入（数值黄金在 moon test 冻结）。
   let mut fi = 0
   while fi < interp.input_count() {
-    let n = probe_input_size(interp, fi)
-    if n > 0 {
-      if !try_set_input(interp, fi, demo_input(n)) {
-        ignore(try_close(interp))
-        return 1
+    let mut fed = false
+    if fi == 0 {
+      match explicit_input {
+        Some(b) => {
+          if !try_set_input(interp, fi, b) {
+            ignore(try_close(interp))
+            return 1
+          }
+          fed = true
+        }
+        None => ()
+      }
+    }
+    if !fed {
+      let n = probe_input_size(interp, fi)
+      if n > 0 {
+        if !try_set_input(interp, fi, demo_input(n)) {
+          ignore(try_close(interp))
+          return 1
+        }
       }
     }
     fi = fi + 1
@@ -214,9 +296,16 @@ async fn run_model(path : String, threads : Int32) -> Int32 {
       }
       Some(out) => {
         let d = descs[j]
-        println(
-          "OUTDATA|\{j}|\{output_values_text(out, d.dtype is @tflite_ffi.TensorDtype::Float32)}",
-        )
+        if out_raw_dir != "" {
+          if !write_out_raw(out_raw_dir, j, out) {
+            ignore(try_close(interp))
+            return 1
+          }
+        } else {
+          println(
+            "OUTDATA|\{j}|\{output_values_text(out, d.dtype is @tflite_ffi.TensorDtype::Float32)}",
+          )
+        }
       }
     }
     j = j + 1
@@ -237,10 +326,20 @@ async fn cmd(rest : ArrayView[String]) -> Int32 {
   let mut lib_path = ""
   let mut threads = 1
   let mut show_info = false
+  let mut input_path = ""
+  let mut out_raw_dir = ""
   for xs = rest {
     match xs {
       ["--model", v, .. r] => {
         model_path = v
+        continue r
+      }
+      ["--input", v, .. r] => {
+        input_path = v
+        continue r
+      }
+      ["--out-raw", v, .. r] => {
+        out_raw_dir = v
         continue r
       }
       ["--backend", v, .. r] => {
@@ -277,7 +376,9 @@ async fn cmd(rest : ArrayView[String]) -> Int32 {
         if p == "--model" ||
           p == "--backend" ||
           p == "--lib" ||
-          p == "--threads" {
+          p == "--threads" ||
+          p == "--input" ||
+          p == "--out-raw" {
           eprintln("error: \{p} 缺少取值")
           return 2
         }
@@ -329,7 +430,7 @@ async fn cmd(rest : ArrayView[String]) -> Int32 {
   if model_path == "" {
     0
   } else {
-    run_model(model_path, threads)
+    run_model(model_path, threads, input_path, out_raw_dir)
   }
 }
 
