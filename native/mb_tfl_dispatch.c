@@ -629,6 +629,7 @@ int32_t tflite_ffi_private_tensor_meta(void *interp, int32_t index,
     const void *t;
     const char *name_ptr;
     int32_t rank, name_len, k;
+    size_t byte_size;
     mb_tfl_quant_params q;
     if (interp == NULL || dims == NULL || misc == NULL || qscale == NULL ||
         name == NULL)
@@ -654,7 +655,9 @@ int32_t tflite_ffi_private_tensor_meta(void *interp, int32_t index,
       dims[1 + k] = (k < rank) ? g_state.api.TfLiteTensorDim(t, k) : 0;
     }
     misc[0] = dtype_code_of(g_state.api.TfLiteTensorType(t));
-    misc[1] = (int32_t)g_state.api.TfLiteTensorByteSize(t);
+    byte_size = g_state.api.TfLiteTensorByteSize(t);
+    if (byte_size > (size_t)INT32_MAX) return 1;
+    misc[1] = (int32_t)byte_size;
     q = g_state.api.TfLiteTensorQuantizationParams(t);
     misc[2] = q.zero_point;
     misc[3] = name_len;
