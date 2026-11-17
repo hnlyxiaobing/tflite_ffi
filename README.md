@@ -27,6 +27,7 @@
 - STF1（stub 模型）与 TFL3（real flatbuffer 模型）**不可混用**；数值容差 `|got−want| ≤ 1e-6 + 1e-5×|want|`，stub/real 期望值显式拆分不得混报。
 - win-x64 `tensorflowlite_c.dll` v2.14.0 已本地源码构建（2,244,096 B / 24 导出 / SHA-256 `6bec4ce6…eccbac`），`golden real*` 2/2；linux/android 仍按 fail-closed 缺口登记。
 - Q10：两个真实目标模型在 real 路径均 `INVOKE|ok`，`c_api.h` 稳定 ABI 未暴露缺失算子；Q4 许可事实层已收敛、法务残余仍开放。
+- 2026-11-17 裁决 A 落地：`tools/real-golden.sh` 以仓库外库路径 + SHA-256 登记驱动真实 golden，缺库/缺工具显式 SKIPPED（退出码 78）、哈希未登记硬失败；许可口径与分发红线见 [`docs/LICENSE-INDEX.md`](docs/LICENSE-INDEX.md)。
 
 ### 2.1 STF1 内部格式（stub 运行时契约）
 
