@@ -1,4 +1,4 @@
-﻿# get-tflite.ps1 — 真实 tensorflowlite_c 获取脚本（2026-11-08；获取链 D2，见 ../README.md §2 与 ../docs/LICENSE-INDEX.md）
+﻿﻿# get-tflite.ps1 — 真实 tensorflowlite_c 获取脚本（2026-11-08；获取链 D2，见 ../README.md §2 与 ../docs/LICENSE-INDEX.md）
 #
 # 【获取顺序（D2 冻结）】
 #   ① 本地探测：MB_TFLITE_LIB_PATH -> .local/tflite/<platform>/ 缓存
