@@ -140,7 +140,7 @@ fn push_spec(buf : Array[Byte], s : TensorSpec) -> Unit {
 }
 
 ///|
-/// 构造 STF1 模型字节（格式见 `stub/README.md`）。
+/// 构造 STF1 模型字节（格式见 `stub/mb_tfl_stub.c` 文件头注释）。
 fn build_model(
   scale_bits : Int32,
   inputs : Array[TensorSpec],

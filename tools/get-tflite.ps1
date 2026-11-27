@@ -1,4 +1,4 @@
-﻿# get-tflite.ps1 — 真实 tensorflowlite_c 获取脚本（2026-11-08；获取链 D2，见 ../docs/DECISIONS.md §2/§3）
+﻿# get-tflite.ps1 — 真实 tensorflowlite_c 获取脚本（2026-11-08；获取链 D2，见 ../README.md §2 与 ../docs/LICENSE-INDEX.md）
 #
 # 【获取顺序（D2 冻结）】
 #   ① 本地探测：MB_TFLITE_LIB_PATH -> .local/tflite/<platform>/ 缓存
@@ -75,7 +75,7 @@ function Get-Sha256Hex([string]$path) {
 function Test-ExportSymbols([string]$path) {
   # 导出符号存在性校验：必需符号名以 NUL 结尾字节序列出现于映像
   #（PE 导出名表 / ELF dynstr 均为该形态；运行期真导出校验由 dispatch 层
-  # GetProcAddress 完成，见 docs/DESIGN.md）。
+  # GetProcAddress 完成，见 README.md §2）。
   $bytes = [System.IO.File]::ReadAllBytes($path)
   $text = [System.Text.Encoding]::ASCII.GetString($bytes)
   $missing = @()

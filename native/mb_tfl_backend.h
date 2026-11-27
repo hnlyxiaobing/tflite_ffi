@@ -65,7 +65,7 @@ extern "C" {
 #define MB_TFL_MAX_RANK 8
 #define MB_TFL_MAX_NAME 63
 
-/* real 路径 dtype 码（与 stub/README.md 一致）：
+/* real 路径 dtype 码（与 stub/mb_tfl_stub.c 文件头注释一致）：
  * 0=Float32 1=Float16 2=Int32 3=UInt8 4=Int8 5=Int64，不支持=255 */
 #define MB_TFL_DTYPE_UNSUPPORTED 255
 

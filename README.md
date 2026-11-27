@@ -1,7 +1,7 @@
 # tflite_ffi · TFLite C API 推理运行时
 
 > 独立发布单元 ｜ L3 感知绑定 ｜ `preferred_target = native` ｜ Apache-2.0
-> 状态：`moon test` **49/49** 通过（2026-11-11 本机实测，另有 2 个 `#skip` 用例不计入）；本文件是本仓库**唯一**说明文档。
+> 状态：`moon test` **62/62** 通过（2026-11-27 本机实测，另有 2 个 `#skip` 用例不计入）；本文件是本仓库**唯一入口文档**（docs 索引见 §2.2）。
 > 公开 API 以 `pkg.generated.mbti` 为准（由 `moon info` 生成，禁手工编辑）；加法性变更须登记簿记 + 快照审阅 + 快照门禁。
 
 ## 1. 定位与边界
@@ -12,7 +12,7 @@
 
 - `Interpreter` 生命周期与张量 API：`from_bytes` / `set_input` / `invoke` / `output_raw` / `output_desc` / `resize_input` / `allocate_tensors` / `close`
 - 17 个包私有 `mb_tfl_*` C shim，一次性符号解析 + 进程级粘性路由
-- stub / real / auto 双路径；`backend_name()` / `backend_info()` 是仅有的两条加法性公开 API
+- stub / real / auto 双路径；`backend_name()` / `backend_info()` / `backend_resolved()` 是三条加法性公开 API（`backend_resolved()` 暴露 `stub|real|none` 三态，旧二元映射冻结）
 - F1（路径探测失败）/ F2（映像无效）/ F3（加载失败）可观察分类；`auto` 回退 stub、`real` 显式报错
 - CLI：`--model / --backend / --lib / --threads / --info / --input / --out-raw`，退出码 0/1/2
 
@@ -33,14 +33,27 @@
 
 - 文件头 `magic="STF1"`、`version=1`；dtype 码 `0=F32 … 5=I64`；输出 `dim=-1` 表示镜像 input 0 的形状。
 - `invoke` 语义为 `out[k] = scale * src[k]`（`scale=1.0` 恒等）；状态码 `0=ok / 1=通用错误 / 2=NOT_ALLOCATED`。
-- 17 个 shim 在 stub 侧改名为 `mb_tfl_stub_impl_*`；数值期望与容差登记在本仓库 `tests/fixtures/golden/ASSETS.md` 与 `tests/fixtures/micro/ASSETS.md`（两文件是测试断言目标，须与代码同步）。
+- 17 个 shim 在 stub 侧改名为 `mb_tfl_stub_impl_*`；数值期望与容差登记在本仓库 `tests/fixtures/golden/ASSETS.md` 与 `tests/fixtures/micro/ASSETS.md`。W2 起 `contract_wbtest.mbt` 真实读取 `micro_mul_f32.numeric.norm.txt` 的 stub `VEC` 与 `TOL` 行做恒等语义回归；real `VEC` 归 W5 真实库（SKIPPED 单列）。
+
+### 2.2 文档索引（本仓库内自足）
+
+| 文档 | 作用 |
+|---|---|
+| [`docs/2026-11-17-dual-path-inference-runtime-dev-plan.md`](docs/2026-11-17-dual-path-inference-runtime-dev-plan.md) | 开发计划：工作包 W1–W6、里程碑、DoD、风险登记 |
+| [`docs/2026-11-17-test-system-design.md`](docs/2026-11-17-test-system-design.md) | 测试系统设计：L0–L5 分层、验收 ID `T-W*-*`、数值容差与 SKIP 纪律 |
+| [`docs/LICENSE-INDEX.md`](docs/LICENSE-INDEX.md) | 许可与分发红线、第三方声明索引（W6-A） |
+| [`docs/GAPS.md`](docs/GAPS.md) | fail-closed 缺口账本（真实库/设备/数值对齐，SKIPPED 单列） |
+| [`docs/CHANGELOG.md`](docs/CHANGELOG.md) | 逐包交付与门禁状态登记（W1–W6） |
+| `tests/fixtures/{micro,golden}/ASSETS.md` | 自产微型模型与数值黄金的 SHA-256/容差登记 |
 
 ## 3. 公开 API 索引（自动抽取 `pkg.generated.mbti` 的 `pub` 声明行；完整字段见快照）
 
 ```text
 pub fn backend_info() -> String
 pub fn backend_name() -> String
-pub(all) suberror TfLiteError {
+pub fn backend_resolved() -> String
+pub fn TfLiteError::to_repr(Self) -> @debug.Repr
+type Interpreter
 pub fn Interpreter::allocate_tensors(Self) -> Unit raise TfLiteError
 pub fn Interpreter::close(Self) -> Unit raise TfLiteError
 pub fn Interpreter::from_bytes(Bytes, InterpreterOptions) -> Self raise TfLiteError
@@ -57,6 +70,13 @@ pub(all) enum InterpreterState {
 pub(all) struct Quantization {
 pub(all) struct TensorDesc {
 pub(all) enum TensorDtype {
+pub(all) suberror TfLiteError {
+#external pub type TfLiteInterpreterRaw
+#external pub type TfLiteModelRaw
+#external pub type TfLiteOptionsRaw
+#external pub type TfLiteTensorRaw
+pub type StatusCode = Int32
+pub type TensorIndex = Int32
 ```
 
 ## 4. 依赖、平台与许可
@@ -66,7 +86,7 @@ pub(all) enum TensorDtype {
 ## 5. 命令行与验证
 
 - `moon run cmd/main --target native -- --model <path> [--backend stub|real|auto] [--lib <path>] [--threads N] [--info]`；输出 `MODEL| INPUTS| OUTPUTS| OUTDESC| INVOKE| OUTDATA| DONE|`。
-- 复验：`moon clean` → `moon check --deny-warn` → `moon build` → `moon test` → `moon fmt --check` → `moon info` 后检查 `pkg.generated.mbti` 无意外 diff。
+- 复验（六道门禁，CI 同序）：`moon clean` → `moon check --deny-warn` → `moon build` → `moon test` → `moon fmt --check` → `moon info` 后检查 `pkg.generated.mbti` 无意外 diff → `python3 tools/cli-golden.py`（L4 CLI 记录行/退出码/落盘字节黄金，文本 hex 夹具，二进制零入库）。
 - 本仓库为独立 Git 仓库，文档与 CI 均自包含，不依赖工作区其他目录。
 
 ## 6. 风险与未决

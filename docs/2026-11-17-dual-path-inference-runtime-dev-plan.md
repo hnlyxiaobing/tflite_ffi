@@ -1,6 +1,6 @@
 # tflite_ffi 双路径推理运行时开发文档
 
-> 建立：2026-11-17 ｜ 状态：待开发 ｜ 适用仓库：本仓库（独立自包含）
+> 建立：2026-11-17 ｜ 状态：W1–W4 已交付（2026-11-27）；W5 真机/真实库差分与 W6 法务残余仍按 SKIPPED 单列 ｜ 适用仓库：本仓库（独立自包含）
 > 配套文档：[2026-11-17-test-system-design.md](2026-11-17-test-system-design.md)（验收测试 ID `T-W*-*` 出自该文档）
 > 本文所有「现状」结论均为 2026-11-17 对本仓库**受版本控制文件**的实测核对，非转述历史文档；本机仓库外的本地构建产物与真实库不纳入事实口径。
 > 五门禁 2026-11-17 实跑（开发前基线）：`moon check --deny-warn` 退出 0；`moon build` 退出 0（native CLI 产出）；`moon test` **49/49 通过**（另有 2 条 `#skip` 的 `golden real` 用例不计入通过）；`moon fmt --check` 退出 0；`moon info` 后 `git diff --exit-code -- pkg.generated.mbti cmd/main/pkg.generated.mbti` 退出 0（双快照零漂移）。
@@ -126,7 +126,7 @@ F# → B# 覆盖：F1→B1/B10；F2→B12；F3→B11；F4→B8/B9；F5→B9/B19�
 
 ## 5. 工作包详细设计
 
-### W1 漂移清理与自包含（P0/S）
+### W1 漂移清理与自包含（P0/S，已交付 2026-11-27）
 
 **目标**：消除 B2/B14/B16/B17 漂移；B6 提交数与 B23 仓库外库口径仅登记。
 **非目标**：不改任何 `.mbt`/`.c` 逻辑；不恢复已搬迁的历史文档；不改 shim ABI 与错误变体。
@@ -137,19 +137,19 @@ F# → B# 覆盖：F1→B1/B10；F2→B12；F3→B11；F4→B8/B9；F5→B9/B19�
 - 新建 `docs/CHANGELOG.md` 登记 W1（新增 pub=无 / diff 空 / 增量 0），注明仓库外申报口径不回写。
 **验收**：T-W1-1 引用实存性扫描零失效；T-W1-2 README 索引 ↔ mbti 逐条一致；T-W1-3 五门禁绿 + 双快照 diff 空；T-W1-4 CHANGELOG 建立并登记；T-W1-5 登记文件与内嵌黄金双通道比对门禁建立（或显式标注为纯登记资产）。
 
-### W2 双路径契约 golden 与诊断门禁（P1/M）
+### W2 双路径契约 golden 与诊断门禁（P1/M，已交付 2026-11-27）
 
 **目标**：把 49 条点状断言升级为可回归契约：stub/real 状态机 golden、backend_info 键序与 F0–F3 分类、13 变体簿记、CLI 记录行黄金、`golden real` SKIPPED 纪律（B9–B15/B21/B22）。
 **非目标**：不改 pub API；不把真实库引入 CI；不放宽冻结容差。
 **新增 API**：无。
 **实现要点**：
-- `tests/golden/` 自产文本：三模式 × F0/F1/F2/F3 × `resolved=stub|real|none` 的 `backend_info()` 键序快照；`from_bytes → set_input → invoke → output_raw → close` 状态序列与错误分类；resize/allocate 在两路径的状态码差异（stub 2 / real 1）分别成 golden。
+- `tests/fixtures/golden/` 自产文本：三模式 × F0/F1/F2/F3 × `resolved=stub|real|none` 的 `backend_info()` 键序快照；`from_bytes → set_input → invoke → output_raw → close` 状态序列与错误分类；resize/allocate 在两路径的状态码差异（stub 2 / real 1）分别成 golden。
 - 性质：同一模型字节双次推理输出逐字节相等；`close` 后任一方法恒 `AlreadyClosed`；`backend_name()` 与 `backend_info().resolved` 的一致性矩阵（含 W4 前的 `none→"stub"` 已知映射）。
 - CLI：七选项组合、记录行逐字节、0/1/2 退出码黄金；错误场景不落盘。
 - 错误簿记门禁化：13/13 变体与测试代码双向核对；`golden real` 保持 `#skip`，默认计数不含；`--include-skipped` 需本机真实库，否则显式 SKIPPED。
 **验收**：T-W2-1 golden 入库且被测试真实读取；T-W2-2 状态机/双路径差异性质全绿；T-W2-3 13/13 错误簿记门禁化；T-W2-4 CLI 记录行与退出码逐字节回归；T-W2-5 旧 49 用例零改动全绿（防火墙）；T-W2-6 `golden real` SKIPPED 纪律断言。
 
-### W3 C 元数据 fail-closed 加固（P1/S）
+### W3 C 元数据 fail-closed 加固（P1/S，已交付 2026-11-27）
 
 **目标**：关闭 B20——C shim 元数据未按契约边界校验。
 **非目标**：不新增错误变体；不改合法模型的任何输出；不改 17 shim ABI；不自动裁剪/修复畸形模型。
@@ -157,7 +157,7 @@ F# → B# 覆盖：F1→B1/B10；F2→B12；F3→B11；F4→B8/B9；F5→B9/B19�
 **实现要点**：`tensor_desc_of` 在调用 `Array::makei(rank,…)` 前校验 `1 ≤ rank ≤ 8`，否则 `NullHandle("tensor[i] rank …")`；对 `byte_size` 校验 `0 ≤ byte_size ≤ 268435456`（256 MiB），否则 `BufferSizeMismatch(expected=cap, actual=byte_size)`；`name_buf` 读取长度同样夹到 0..64；`dtype_of_code` 既有 `UnsupportedDtype` 不动。按 fail-closed 例外登记 CHANGELOG；回归确认仅畸形元数据样本改变行为，原 49 用例零改动全绿。
 **验收**：T-W3-1 越界 rank → `NullHandle`，无 panic；T-W3-2 超大/负 byte_size → `BufferSizeMismatch`，无大分配；T-W3-3 合法模型输出逐字节不变、旧 49 用例零改动；T-W3-4 截断/变异模型字节扫描无崩溃。
 
-### W4 `backend_resolved()` 诊断防火墙（P2/S）
+### W4 `backend_resolved()` 诊断防火墙（P2/S，已交付 2026-11-27）
 
 **目标**：关闭 B19——调用方无法从公开二元函数区分 real 强制失败与 stub 活跃。
 **非目标**：不改 `backend_name()`/`backend_info()` 语义与返回；不改 C 侧解析逻辑；不引入新错误变体。
@@ -195,10 +195,10 @@ pub fn backend_resolved() -> String
 ## 6. 里程碑与合入顺序
 
 ```text
-M0（第1日）   W1 漂移清理与自包含（零风险文档/注释/CI）
-M1            W3 C 元数据 fail-closed 加固（安全缺口，行为增强例外）
-M2            W2 双路径 golden 与诊断门禁（高价值低成本）
-M3            W4 backend_resolved 诊断防火墙（纯加法）
+M0（2026-11-27 已交付）  W1 漂移清理与自包含（零风险文档/注释/CI）
+M1（2026-11-27 已交付）  W3 C 元数据 fail-closed 加固（安全缺口，行为增强例外）
+M2（2026-11-27 已交付）  W2 双路径 golden 与诊断门禁（高价值低成本；第六道 CLI 门禁）
+M3（2026-11-27 已交付）  W4 backend_resolved 诊断防火墙（纯加法，快照 +1 pub）
 M4（已裁决）  W5 runner 已落地（真机未实测）+ W6 许可索引已落地
 ```
 
@@ -214,15 +214,15 @@ M4（已裁决）  W5 runner 已落地（真机未实测）+ W6 许可索引已�
 
 ## 8. 完成定义（DoD，逐包勾选）
 
-- [ ] 新增 API 与 mbti 草案一致（偏差回写本文）；零新增错误变体
-- [ ] 快照 diff 纯加法（或空），CHANGELOG 已登记
-- [ ] `T-W*-*` 验收全绿；`#skip` 显式标注原因、不计通过
-- [ ] 五门禁全绿；CLI 记录行/退出码零意外漂移
-- [ ] 防火墙回归：新函数/新包合入后旧 API 在既有语料上输出逐字节不变、旧用例零改动全绿（W1 纯文档包以旧用例零改动全绿为准）
-- [ ] 畸形模型/元数据无 panic、无越界、无大分配
-- [ ] 零新第三方依赖；零许可不明二进制入库；`.local/` 仍不受版本控制
-- [ ] README 能力/非目标/索引同步；本文状态行更新「已交付+日期」
-- [ ] 自包含扫描：docs + 代码注释 + C 注释 + 帮助文本 + CI/脚本无工作区路径与兄弟模块符号引用
+- [x] 新增 API 与 mbti 草案一致（W4 `backend_resolved` 纯加法）；零新增错误变体（仍 13 个）
+- [x] 快照 diff 纯加法（+1 pub / +2 行含空行），CHANGELOG 已登记
+- [x] `T-W1-*`/`T-W2-*`/`T-W3-*`/`T-W4-*` 验收全绿；`#skip` 显式标注原因、不计通过
+- [x] 六道门禁全绿（五道 MoonBit + L4 CLI 黄金）；CLI 记录行/退出码零意外漂移（`tools/cli-golden.py`）
+- [x] 防火墙回归：新函数/新包合入后旧 API 在既有 49 条语料上输出逐字节不变、旧用例零改动全绿
+- [x] 畸形模型/元数据无 panic、无越界、无大分配（W3 截断/突变扫描 + 元数据上界）
+- [x] 零新第三方依赖；零许可不明二进制入库；`.local/` 仍不受版本控制
+- [x] README 能力/非目标/索引同步；本文状态行更新「已交付+日期」
+- [x] 自包含扫描：docs + 代码注释 + C 注释 + 帮助文本 + CI/脚本无工作区路径与兄弟模块符号引用
 
 ## 9. 风险登记
 

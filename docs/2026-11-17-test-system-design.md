@@ -1,6 +1,6 @@
 # tflite_ffi 测试系统设计（第一性原理）
 
-> 建立：2026-11-17 ｜ 状态：设计生效，随开发文档逐包落地 ｜ 适用仓库：本仓库（独立自包含）
+> 建立：2026-11-17 ｜ 状态：W1–W4 已落地（2026-11-27，`moon test` 61/61 + 第六道 CLI 门禁）；W5 真机/真实库对照仍 SKIPPED ｜ 适用仓库：本仓库（独立自包含）
 > 配套文档：[2026-11-17-dual-path-inference-runtime-dev-plan.md](2026-11-17-dual-path-inference-runtime-dev-plan.md)（`T-W*-*` 验收 ID 一一对应；B# 证据行见该文档 §0）
 
 ## 1. 第一性原理：本库的正确性是什么
@@ -30,11 +30,11 @@
 ## 2. 测试分层
 
 ```text
-L0 单元与程序化 fixture（现有 49 条中的主体：状态机/shim 错误/CLI/后端钩子）
-L1 性质与变异（变形律 / 模型字节截断与位翻转 / 元数据边界 / 状态码枚举）
-L2 受控黄金差分（自产 STF1/TFL3 生成器 + SHA-256 + 冻结容差；W2 补登记文件门禁）
+L0 单元与程序化 fixture（现有 62 条中的主体：状态机/shim 错误/CLI/后端钩子/契约 golden）
+L1 性质与变异（变形律 / 模型字节截断与位翻转 / 元数据边界 / 状态码枚举；W3 已落地）
+L2 受控黄金差分（自产 STF1/TFL3 生成器 + SHA-256 + 冻结容差；W2 登记文件已门禁化）
 L3 外部 oracle 差分（真实 TFLite 运行时，仅 W5 裁决后本地可选，显式 SKIPPED）
-L4 CLI 场景 E2E（七选项 + 记录行 + 0/1/2；W2 脚本化黄金）
+L4 CLI 场景 E2E（七选项 + 记录行 + 0/1/2；W2 已脚本化为第六道门禁）
 L5 元契约门禁（快照 / 13 变体簿记 / 17 shim ABI / 引用实存性 / SKIPPED 纪律 / 变异自检）
 R  真实库本地 runner（仓库外路径 + 哈希登记 + 显式 SKIPPED；golden real 2 条占位）
 ```
@@ -57,7 +57,7 @@ R  真实库本地 runner（仓库外路径 + 哈希登记 + 显式 SKIPPED；go
 | 类 | 形态 | 入库 | 许可 | 现状 |
 |---|---|---|---|---|
 | F-A 程序化构造 | 内嵌 TFL3/STF1 字节生成器、f32 位工具、状态注入 | 是 | 随仓库 | 已实现且被 `golden tflite*` 真实消费（B13） |
-| F-B 受控文件 fixture | `tests/fixtures/golden/ASSETS.md`、`micro/ASSETS.md`、`micro_mul_f32.numeric.norm.txt` | 是 | 哈希登记 | 文件实存，但 `.txt` 零代码消费者（B14）；W1/W2 门禁化或降级为纯登记资产 |
+| F-B 受控文件 fixture | `tests/fixtures/golden/ASSETS.md`、`micro/ASSETS.md`、`micro_mul_f32.numeric.norm.txt`、`backend_info_*.txt`、`state_sequence.txt`、`error_variants.txt`、`cli_*.txt`、`cli_*.hex` | 是 | 哈希/文本登记 | W2 已门禁化：`contract_wbtest.mbt` 读取 backend_info/状态序列/错误簿记 golden，`tools/cli-golden.py` 读取 CLI 记录行与文本 hex 夹具（二进制零入库） |
 | F-C 生成器资产 | `tools/gen-micro-model.ps1`（确定性模型字节） | 是 | 自产 | 已实现；与内嵌生成器逐字节一致性靠 SHA-256 间接保证 |
 | F-D 真实库/真实模型 | 仓库外本地路径 | 否（红线） | 需法务确认 | `golden real` 2 条 `#skip`；`.local/` 不受版本控制（B7/B23） |
 
@@ -94,21 +94,21 @@ builder 能力清单：STF1 头（magic/version/输入数/输出数/scale）、�
 
 | ID | 能力/场景 | L0 | L1 | L2 | L3 | L4 | 现状(P4) | 缺口→W# |
 |---|---|---|---|---|---|---|---|---|
-| F1 | Interpreter 生命周期/访问器 | ✓ | ◐ | ✗ | ✗ | ✓ | errdefer + close 单点 + 四态（B10） | 序列 golden→W2 |
-| F2 | 张量 API/dtype/量化 | ✓ | ◐ | ◐ | ✗ | ✓ | 长度校验 + 容差 golden（B12/B13） | 双通道登记→W1/W2 |
-| F3 | resize/allocate | ✓ | ◐ | ✗ | ✗ | ✓ | 8 条用例 + 双路径状态码差异（B11） | 差异 golden→W2 |
-| F4 | 17 shim + stub/real/auto | ✓ | ✗ | ◐ | ✗ | ✓ | 粘性路由 + F1/F2/F3（B8/B9） | 诊断矩阵→W2；ABI 门禁→W5 |
-| F5 | 后端诊断 | ✓ | ✗ | ◐ | ✗ | ◐ | 二元名 + 文本 info（B9/B19） | 三态 resolved→W4 |
-| F6 | 错误模型 13 变体 | ✓ | ✗ | ◐ | ✗ | ✓ | 显式簿记 13/13（B3） | 门禁化→W2 |
-| F7 | CLI 0/1/2 + 记录行 | ✓ | ✗ | ✗ | ✗ | ✓ | 7 选项 + 13 条退出码断言（B15） | 记录行黄金→W2 |
-| F8 | 零入库 golden 链 | ✓ | ◐ | ◐ | ✗ | ✗ | 内嵌生成器 + SHA-256 + 容差（B13）；登记文件无消费者（B14） | 双通道门禁→W1/W2 |
-| F9 | 真实库/许可/平台 | ✗ | ✗ | ✗ | ◐ | ✗ | 未在本仓库复验（B18/B23） | 裁决→W5/W6 |
+| F1 | Interpreter 生命周期/访问器 | ✓ | ◐ | ✓ | ✗ | ✓ | 四态 + 状态序列 golden（B10；W2 已落地） | real 状态序列→W5 |
+| F2 | 张量 API/dtype/量化 | ✓ | ◐ | ✓ | ✗ | ✓ | 长度校验 + 容差 golden（B12/B13）；登记已门禁化（W2） | 无 |
+| F3 | resize/allocate | ✓ | ◐ | ✓ | ✗ | ✓ | 8 条用例 + stub 状态码 2 golden（B11；W2） | real 状态码 1→W5 |
+| F4 | 17 shim + stub/real/auto | ✓ | ✓ | ✓ | ✗ | ✓ | 粘性路由 + F1/F2/F3 + backend_info golden（W2） | ABI 门禁→W5 |
+| F5 | 后端诊断 | ✓ | ✗ | ✓ | ✗ | ✓ | 二元名 + 文本 info + 三态 resolved（W2/W4 已落地） | 无 |
+| F6 | 错误模型 13 变体 | ✓ | ✗ | ✓ | ✗ | ✓ | 显式簿记 13/13 门禁化（B3；W2） | 无 |
+| F7 | CLI 0/1/2 + 记录行 | ✓ | ✗ | ✓ | ✗ | ✓ | 7 选项 + 记录行/退出码/落盘黄金脚本（W2 第六道门禁） | 无 |
+| F8 | 零入库 golden 链 | ✓ | ◐ | ✓ | ✗ | ✓ | 内嵌生成器 + SHA-256 + 容差（B13）；登记文件已消费（W2） | 无 |
+| F9 | 真实库/许可/平台 | ✗ | ✗ | ✗ | ◐ | ✗ | 未在本仓库复验（B18/B23） | 真机→W5；许可→W6 |
 | S1 | 预期场景端到端（模型→推理→输出） | ✓ | | ◐ | | ✓ | stub 链全绿；real 链 2 条 SKIPPED（B22） | real golden→W5 |
-| S2 | 安全拒绝（版本不符/非法 dtype/超尺寸/重复 close） | ✓ | ◐ | | | ✓ | 显式变体断言 | 元数据上界→W3 |
-| C1 | 输入安全（无 panic/内存有界/句柄不泄漏） | ◐ | ✗ | | | | 有长度校验，无元数据上界（B20） | rank/byte_size→W3 |
-| C2 | 防火墙（新包不改旧语义） | ◐ | ✗ | ✗ | | ◐ | 尚无固化 golden | T-W2-5/T-W3-3/T-W4-2 |
+| S2 | 安全拒绝（版本不符/非法 dtype/超尺寸/重复 close） | ✓ | ✓ | | | ✓ | 显式变体断言 + 元数据上界（W3） | 无 |
+| C1 | 输入安全（无 panic/内存有界/句柄不泄漏） | ✓ | ✓ | | | | 长度校验 + rank/byte_size/name 上界 + 截断突变扫描（W3） | 无 |
+| C2 | 防火墙（新包不改旧语义） | ✓ | ✓ | ✓ | | ✓ | 旧 49 用例零改动 + 新契约 golden（W2/W3/W4） | 无 |
 | C3 | 许可红线（F-D 零入库） | ✓ | | | | | `.local` 不跟踪（B7/B23） | R runner 哈希→W5；终裁→W6 |
-| C4 | 契约稳定（快照/索引/引用实存性/SKIPPED） | ◐ | | | | | 双快照无漂移；索引与注释漂移（B2/B16/B22） | 清理→W1；门禁→W2 |
+| C4 | 契约稳定（快照/索引/引用实存性/SKIPPED） | ✓ | | | | | 双快照无漂移 + README 索引对齐 + EOL 策略（W1/W2） | 无 |
 
 C 行含防火墙（C2）与许可红线（C3）两行。
 
@@ -125,10 +125,10 @@ C 行含防火墙（C2）与许可红线（C3）两行。
 | `CopyFromBufferFailed` | ✓ 未 allocate 状态码 2、注入失败 | 真实 EFAULT 类（W5） |
 | `CopyToBufferFailed` | ✓ 未 allocate 状态码 2、注入失败 | 真实读取失败（W5） |
 | `InvokeFailed` | ✓ 未 allocate / 注入 invoke 失败 | 真实算子缺失（W5/Q10） |
-| `BufferSizeMismatch` | ✓ `set_input` 长度不符 | 元数据 byte_size 越界（W3） |
+| `BufferSizeMismatch` | ✓ `set_input` 长度不符 + 元数据 byte_size 越界（W3 `checked_tensor_meta`） | 无 |
 | `UnsupportedDtype` | ✓ 未知 dtype 码、Float16 未 `allow_fp16` | 真实量化 dtype（W5） |
 | `AlreadyClosed` | ✓ close 后调用全部方法、重复 close | 无 |
-| `NullHandle` | ✓ 空句柄元数据查询白盒 | 异常 rank 元数据（W3） |
+| `NullHandle` | ✓ 空句柄元数据查询白盒 + 异常 rank 元数据（W3 `checked_tensor_meta`） | 无 |
 
 显式簿记 **13/13**（2026-11-17 实测）；W3/W5 只增加触发语料，不新增变体。
 
@@ -139,16 +139,16 @@ C 行含防火墙（C2）与许可红线（C3）两行。
 - 尺寸恒等式：`set_input` 接受长度恒等于 `desc.byte_size`；`output_raw` 返回长度恒等于输出 `desc.byte_size`。
 - 诊断恒等式：`backend_info()` 键序与取值域冻结；`resolved=none` 在 W4 前恒映射 `backend_name()=="stub"`（作为已知局限写入 golden）；W4 后新函数三态可判定。
 - 数值恒等式：stub STF1 scale=1.0 时输出恒等于输入；TFL3 乘法期望由独立 mini flatbuffer 解析器重算；容差公式逐字冻结。
-- **防火墙恒等式：任一 W# 合入后旧 API 在既有 49 语料上输出逐字节不变、旧用例零改动全绿**（W1 纯文档包以旧用例零改动全绿为准）。
+- **防火墙恒等式：任一 W# 合入后旧 API 在既有语料（W2 前 49 条）上输出逐字节不变、旧用例零改动全绿**（W1 纯文档包以旧用例零改动全绿为准；W2/W3/W4 合入后旧 49 条仍零改动通过）。
 
 ### 6.4 #skip 清单（显式单列，永不计入通过）
 
 | 用例 | 位置 | 原因 |
 |---|---|---|
-| `golden real micro_mul_f32 v1` | `real_golden_test.mbt` L830–853 | 需真实后端 + 仓库外真实库；默认 stub 环境显式 SKIPPED，首行断言 `backend_name()=="real"` |
-| `golden real micro_mul_f32 v2` | `real_golden_test.mbt` L856–879 | 同上；历史「2/2 通过」属仓库外事实，本轮未复验 |
+| `golden real micro_mul_f32 v1` | `real_golden_test.mbt`（`#skip` 块） | 需真实后端 + 仓库外真实库；默认 stub 环境显式 SKIPPED，首行断言 `backend_name()=="real"` |
+| `golden real micro_mul_f32 v2` | `real_golden_test.mbt`（`#skip` 块） | 同上；历史「2/2 通过」属仓库外事实，本轮未复验 |
 
-计数口径：默认 51 条声明（实际执行 49 + `#skip` 2）− 2 条 `#skip` = **49 执行**（2026-11-17 `moon test` 实测 49/49）；`moon test --include-skipped -f "golden real*"` 需真实库，缺失时显式 SKIPPED（退出码 78 口径），不进通过计数；历史 2/2 不计入当前结论。
+计数口径：默认 63 条声明（实际执行 61 + `#skip` 2）− 2 条 `#skip` = **61 执行**（2026-11-27 `moon test` 实测 61/61）；`moon test --include-skipped -f "golden real*"` 需真实库，缺失时显式 SKIPPED（退出码 78 口径），不进通过计数；历史 2/2 不计入当前结论。
 
 ### 6.5 验收 ID 双向追溯表
 
@@ -180,6 +180,7 @@ C 行含防火墙（C2）与许可红线（C3）两行。
 | T-W6-2（裁决 A）许可索引自包含、无工作区路径 | W6（A 已落地 ✓） | C4 | A5/L5 |
 | T-W6-3（裁决 B）残余状态文档化且红线不破 | W6（B 未采纳，存档） | C3 | A3/L5 |
 
+落地状态（2026-11-27）：W1 的 T-W1-1..5 已落地（README 索引 ↔ mbti 逐条对齐、docs/CHANGELOG.md 建立、登记文件由 W2 消费）；W2 的 T-W2-1..6 已落地（backend_info/状态序列/错误簿记由 `contract_wbtest.mbt` 真实读取，CLI 记录行由 `tools/cli-golden.py` 逐字节回归；T-W2-2 的 real 侧状态码 1 与 T-W2-6 的真实库联跑仍按 W5 SKIPPED 单列，不以 stub 结论替代）；W3 的 T-W3-1..4 已落地（rank/byte_size/name 上界为防御性结构断言：stub 解析器与 real C 分发先拒绝畸形元数据；截断/突变扫描实测无 panic/无句柄泄漏）；W4 的 T-W4-1..3 已落地（快照纯加法 +1 pub、旧二元映射冻结）。
 W5/W6-A 已裁决并落地 runner/许可索引；真实库差分与设备报告仍保持「未实测/SKIPPED」，不预写通过。
 
 ## 7. L4 CLI 场景 E2E
@@ -204,10 +205,11 @@ W5/W6-A 已裁决并落地 runner/许可索引；真实库差分与设备报告�
 4. 变异自检：注入 3 类缺陷（跳过 AllocateTensors / 把 F1 误映射为 F2 / 容差公式放宽一个数量级），套件必须变红后还原复绿。
 5. 计数纪律：`#skip` 不计通过；过滤串以 `*` 结尾防空转假绿；`golden real` 历史 2/2 单列报告。
 6. 引用实存性扫描：`.mbt/.md/.yml/.c/.h/.ps1` 注释与文案引用的仓库内路径全部实存；README 索引与快照逐条一致；`.local/` 仍不受版本控制；无工作区路径与兄弟模块符号。
+7. L4 CLI 黄金（第六道 CI 门禁）：`tools/cli-golden.py` 逐字节比对帮助/用法/stub 全链/out-raw/auto 回退/real 强制失败/尺寸不符；文本 hex 夹具生成模型与输入，二进制零入库。
 
 ## 9. CI 集成与执行入口
 
-五门禁不变（CI 已固化）；L0/L1/L2 挂 `moon test`；L3/L4/R/真实库对照为脚本层可选 job，缺失显式 SKIPPED。
+六道门禁（CI 已固化）：五道 MoonBit 门禁 + L4 CLI 黄金脚本（W2 T-W2-4）。L0/L1/L2 挂 `moon test`；L3/R/真实库对照为脚本层可选 job，缺失显式 SKIPPED。
 复验命令（本仓库根目录自包含）：
 
 ```bash
@@ -216,6 +218,7 @@ moon build
 moon test
 moon fmt --check
 moon info; git diff --exit-code -- pkg.generated.mbti cmd/main/pkg.generated.mbti
+python3 tools/cli-golden.py                     # L4 CLI 记录行/退出码/落盘字节黄金
 moon test --include-skipped -f "golden real*"    # 需仓库外真实库，否则显式 SKIPPED
 ```
 
@@ -229,4 +232,4 @@ Windows 下 moon 把进度写 stderr，以退出码与 `Total tests: N, passed: 
 4. 每包合入 ⇒ 开发文档 DoD 勾选 + 矩阵现状刷新 + CHANGELOG 测试增量。
 5. 「通过」须可复验：命令 + 日期 + 计数；SKIPPED 永远单列；stub/real 期望永不混报。
 
-落地验收：L0 ✓（49 条实跑）、L1 ◐（点状，W2/W3 补齐）、L2 ◐（内嵌 golden 已消费，登记文件双通道与真实 golden 待 W1/W2/W5）、L3 ◐（W5-A runner 已落地；无登记真实库→SKIPPED，未声称通过）、L4 ✓（CLI 白盒覆盖，脚本黄金待 W2）、L5 ◐（快照与计数已验，ABI/簿记门禁与变异自检待 W2）、R ✗（2 条 `#skip` 占位；W5-A 本地可选）；W5/W6 已裁决 A，不再列为待裁决项。
+落地验收（2026-11-27）：L0 ✓（62 条实跑）、L1 ✓（W3 元数据边界 + 截断/突变扫描）、L2 ✓（内嵌 golden + 登记文件双通道已消费；真实 golden 归 W5）、L3 ◐（W5-A runner 已落地；无登记真实库→SKIPPED，未声称通过）、L4 ✓（CLI 白盒 + `tools/cli-golden.py` 第六道门禁）、L5 ✓（快照纯加法、13/13 簿记穷尽匹配门禁、README 索引对齐、EOL 策略）、R ✗（2 条 `#skip` 占位；W5-A 本地可选）；W5/W6 已裁决 A，不再列为待裁决项。

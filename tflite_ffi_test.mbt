@@ -9,7 +9,7 @@
 // 外部实现测试与重复的 capi 版本测试已删除。
 
 ///|
-/// 测试辅助：STF1 stub 模型张量描述（格式见 `stub/README.md`）。
+/// 测试辅助：STF1 stub 模型张量描述（格式见 `stub/mb_tfl_stub.c` 文件头注释）。
 struct TensorSpec {
   name : Bytes
   dtype : Int32
