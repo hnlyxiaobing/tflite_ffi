@@ -1,6 +1,5 @@
 import {
   "hnlyxiaobing/tflite_ffi",
-  "moonbitlang/core/async",
   "moonbitlang/core/async/fs",
   "moonbitlang/core/env",
 }

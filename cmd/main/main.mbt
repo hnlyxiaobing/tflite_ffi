@@ -170,7 +170,7 @@ async fn read_input_file(path : String) -> Bytes? {
 /// 失败打印 `error:` 并返回 false。
 async fn prepare_out_dir(dir : String) -> Bool {
   try {
-    @fs.mkdir(dir, recursive=true, allow_exist=true)
+    @fs.mkdir(dir, recursive=true, allow_existing=true)
     true
   } catch {
     e => {
@@ -318,7 +318,7 @@ async fn run_model(
 }
 
 ///|
-/// 参数解析与主流程。env 写入必须先于任何库调用（切换约定（`docs/DECISIONS.md` §2）：
+/// 参数解析与主流程。env 写入必须先于任何库调用（切换约定（`README.md §2`）：
 /// 切换走 MB_TFLITE_BACKEND/MB_TFLITE_LIB_PATH，`--backend`/`--lib` 是其 CLI 面）。
 async fn cmd(rest : ArrayView[String]) -> Int32 {
   let mut model_path = ""

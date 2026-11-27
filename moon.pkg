@@ -9,6 +9,11 @@ import {
   "moonbitlang/core/encoding/utf8",
 } for "wbtest"
 
+// 后端解析/环境变量是进程级全局状态：测试必须串行，避免与 backend 场景用例
+// 并发争用（W2 契约测试加入后显式钉死）。
+
+max_concurrent_tests = 1
+
 options(
   "native-stub": [
     "native/mb_tfl_dispatch.c",
@@ -16,4 +21,8 @@ options(
     "stub/mb_tfl_stub.c",
   ],
   "allow-experimental-packages": true,
+  // 工具链 0.1.20261119 起，`async test` 所需的 async 条件导入被误报为
+  // unused_package；本项目坚持零第三方依赖（不引入独立 moonbitlang/async 模块），
+  // 故仅在本包抑制该告警，其余告警仍由 --deny-warn 硬门禁。
+  warnings: "-unused_package",
 )

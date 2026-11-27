@@ -1,0 +1,21 @@
+# EOL 策略（M0 仓库卫生）：文本源与清单统一 LF，二进制资产显式 -text。
+# 说明：Windows 全局 core.autocrlf=true 会把工作区检出为 CRLF，而 moon fmt 写 LF，
+# 造成 git status 显示 M 但 git diff 为空。此处钉死 LF，避免误判与误回滚。
+*.mbt        text eol=lf
+*.mbt.md     text eol=lf
+*.mbti       text eol=lf
+*.md         text eol=lf
+*.pkg        text eol=lf
+*.mod        text eol=lf
+*.c          text eol=lf
+*.h          text eol=lf
+*.yml        text eol=lf
+*.yaml       text eol=lf
+*.ps1        text eol=lf
+*.sh         text eol=lf
+*.py         text eol=lf
+*.txt        text eol=lf
+*.hex        text eol=lf
+LICENSE      text eol=lf
+.gitignore   text eol=lf
+.gitattributes text eol=lf
