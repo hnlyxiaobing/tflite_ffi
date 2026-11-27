@@ -1,6 +1,6 @@
-# tflite 数值黄金登记（tflite_ffi/tests/fixtures/golden/ASSETS.md）
+# tflite 数值黄金登记（ASSETS.md）
 
-> 建立：2026-11-08。登记文件：`micro_mul_f32.numeric.norm.txt`。
+> 建立：2026-11-08。登记文件：`tests/fixtures/golden/micro_mul_f32.numeric.norm.txt`；模块入口见 [`README.md`](../../../README.md)。
 > **数据口径（冻结）自足登记于本文件**：§1 登记内容、§2 容差、§3 stub/real 分报
 > 规则、§4 SKIPPED 语义、§5 红线。**回归入口 = `moon test`**（golden tflite/real 类
 > 用例即本登记的执行体；开发期曾由外层 golden 校验脚本按同一口径分链校验，
@@ -34,11 +34,11 @@
 ±0 等价；Inf bit 相等）。容差超限 = 失败，**不得放宽**。登记行为
 `TOL|abs=1e-6|rel=1e-5|cmp=f64|nan=bit-equal|pm0=equal|inf=bit-equal`，
 校验口径 = 逐字比对该行（漂移即 FAIL）。
-**适用面（裁决 2026-11-08）**：仅约束**数值断言侧**（各后端运行输出对各自独立参考值，
-real 侧断言代码已就绪 `golden real*`，待真实库就位实跑）；登记自洽重算为位型精确比较，
-不套容差。**跨后端同模型数值一致性（stub vs real 容差对比）因 STF1 语义上限不适用**
-（STF1 仅支持标量 scale 逐元素缩放，无法表达 MUL 权重）——口径 = 各后端对各自独立参考值
-在冻结容差内一致。
+**适用面（裁决 2026-11-08）**：仅约束**数值断言侧**（各后端运行输出对各自独立参考值）；
+登记自洽重算为位型精确比较，不套容差。**跨后端同模型数值一致性（stub vs real 容差对比）
+因 STF1 语义上限不适用**（STF1 仅支持标量 scale 逐元素缩放，无法表达 MUL 权重）——
+口径 = 各后端对各自独立参考值在冻结容差内一致。real 侧已于 2026-11-27 使用本机
+未入库 win-x64 `tensorflowlite_c.dll` v2.14.0 复验 2/2 `[已复核]`。
 
 ## 3. stub / real 双路径报告规则（强制，不得混报）
 
@@ -74,34 +74,33 @@ real 侧断言代码已就绪 `golden real*`，待真实库就位实跑）；登
   stub=恒等拷贝）。落笔前对表库内登记值**逐位一致** `[已复核]`
   （stub 行 == `golden_v*_in()`；real 行 == `golden_v*_mul()`）。
 - **跨后端同模型数值一致性（stub vs real 容差对比）因 STF1 语义上限不适用**；
-  口径 = 各后端对各自独立参考值在冻结容差内一致（real 侧断言 `golden real*` 已就绪，
-  待真实库就位实跑 `[仍需实测]`）。容差公式仅约束数值断言侧。
+  口径 = 各后端对各自独立参考值在冻结容差内一致。real 侧断言 `golden real*` 已于
+  2026-11-27 使用本机未入库 win-x64 真实库复验 2/2 `[已复核]`，不再记为待实测。
+  容差公式仅约束数值断言侧。
 - 相关文件（`micro/ASSETS.md`、`real_golden_test.mbt` 等）**未改动**（其登记已正确）。
 
 ## 4. SKIPPED 语义（exit 78 ≠ 通过）
 
-> **2026-11-09 实跑补充（R4）**：win-x64 真实库已取得（`.local/tflite/win-x64/`，
-> SHA-256 与 PROVENANCE 见 `docs/GAPS.md`），`moon test --include-skipped -f "golden real*"`
-> 实跑 **2/2 通过**（首行 `backend_name()=="real"` 断言生效，冻结容差内数值对齐）。
-> 本文其它处「待真实库就位实跑」的措辞指 2026-11-08 登记时状态；**无库环境的
-> SKIPPED 语义不变**（仍不计通过）。
+> **2026-11-27 本机复验 `[已复核]`**：使用本机未入库的 win-x64
+> `tensorflowlite_c.dll` v2.14.0（2,244,096 B；SHA-256
+> `6bec4ce6ee3db69a0c15112fbb8d4449955d46fa8d181b865a58ec1400eccbac`），同时设置
+> `MB_TFLITE_BACKEND=real` 与 `MB_TFLITE_LIB_PATH` 后运行
+> `moon test --include-skipped -f "golden real*"`，结果 **2/2**。库与模型均不入库；
+> 默认 `moon test` 仍为 **62/62 + 2 skip**，两条 real 用例显式 `#skip`，不计入通过。
 
-- **无真实库**（MB_TFLITE_LIB_PATH / tflite_ffi/.local/tflite / D:\Android\Sdk /
-  %USERPROFILE%\.gradle\caches 逐条探测均未命中）→ `SKIPPED: tflite/real golden real 未执行：
-  真实库不可用（探测逐条列因）` → **exit 78，不得计通过**。
+- **无真实库**（`MB_TFLITE_LIB_PATH`、`.local/tflite/` 与常见 SDK/Gradle 缓存逐条探测均未命中）→ `SKIPPED: tflite/real golden real 未执行：真实库不可用（探测逐条列因）` → **exit 78，不得计通过**。
 - 校验链被禁用测试执行（仅工具校验）时 → stub/real 各自 SKIPPED 显式列因（同为 78）。
-- 2026-11-08 本机实测 `[已复核]`：四条探测路径均无 `tensorflowlite_c.dll` →
+- 2026-11-08 历史实测：四条探测路径均无 `tensorflowlite_c.dll` →
   registry 自洽校验 PASS + 2×SKIPPED（golden real 未执行）→ **exit 78（不计通过）**。
-  本仓库内等价回归：`moon test` 常规跑 = registry + stub 数值黄金全过、golden real
-  类 SKIPPED 不计通过；取得真实库后
-  `moon test --include-skipped -f "golden real*"` 复测 `[仍需实测]`。
+  2026-11-27 取得真实库后的 2/2 仅证明当前本机 win-x64 real golden 路径；Linux/Android
+  真实库仍为 `[仍需实测]`，不得据此声称跨平台通过。
 
-## 5. 红线（重申，见 `docs/LICENSE-INDEX.md`）
+## 5. 红线（重申，见 [`docs/LICENSE-INDEX.md`](../../../docs/LICENSE-INDEX.md)）
 
 - 真实 `libtensorflowlite_c`（.so/.dll/.dylib）、真实第三方模型**禁入库**（含本目录）；
   唯一允许 = 本地链接（MB_TFLITE_LIB_PATH / `.local/`）+ SHA-256 记录。
 - 自产微型模型**零入库**：`micro_mul_f32.{tflite,stf1}` 由
-  `tflite_ffi/tools/gen-micro-model.ps1` 程序化生成到 gitignore 目录；模型字节 SHA-256 登记于
-  `tests/fixtures/micro/ASSETS.md`。本目录只含数值登记（文本）。
+  `tools/gen-micro-model.ps1` 程序化生成到 gitignore 目录；模型字节 SHA-256 登记于
+  [`tests/fixtures/micro/ASSETS.md`](../micro/ASSETS.md)。本目录只含数值登记（文本）。
 - 确定性：登记无时间戳、无绝对路径；hex 大写 8 位固定格式；`-Update` 不改写登记
   （手写冻结数据；链内仅做自洽校验）。

@@ -1,6 +1,6 @@
 # tflite_ffi 测试系统设计（第一性原理）
 
-> 建立：2026-11-17 ｜ 状态：W1–W4 已落地（2026-11-27，`moon test` 61/61 + 第六道 CLI 门禁）；W5 真机/真实库对照仍 SKIPPED ｜ 适用仓库：本仓库（独立自包含）
+> 建立：2026-11-17 ｜ 状态：W1–W4 已落地（2026-11-27，`moon test` 62/62 + 2 skip；L4 CLI golden 为可选附加检查）；W5 真机/真实库对照仍 SKIPPED ｜ 适用仓库：本仓库（独立自包含）
 > 配套文档：[2026-11-17-dual-path-inference-runtime-dev-plan.md](2026-11-17-dual-path-inference-runtime-dev-plan.md)（`T-W*-*` 验收 ID 一一对应；B# 证据行见该文档 §0）
 
 ## 1. 第一性原理：本库的正确性是什么
@@ -30,11 +30,11 @@
 ## 2. 测试分层
 
 ```text
-L0 单元与程序化 fixture（现有 62 条中的主体：状态机/shim 错误/CLI/后端钩子/契约 golden）
+L0 单元与程序化 fixture（当前 62 条执行 + 2 条 `#skip`：状态机/shim 错误/CLI/后端钩子/契约 golden）
 L1 性质与变异（变形律 / 模型字节截断与位翻转 / 元数据边界 / 状态码枚举；W3 已落地）
 L2 受控黄金差分（自产 STF1/TFL3 生成器 + SHA-256 + 冻结容差；W2 登记文件已门禁化）
 L3 外部 oracle 差分（真实 TFLite 运行时，仅 W5 裁决后本地可选，显式 SKIPPED）
-L4 CLI 场景 E2E（七选项 + 记录行 + 0/1/2；W2 已脚本化为第六道门禁）
+L4 CLI 场景 E2E（七选项 + 记录行 + 0/1/2；W2 已脚本化为可选附加检查）
 L5 元契约门禁（快照 / 13 变体簿记 / 17 shim ABI / 引用实存性 / SKIPPED 纪律 / 变异自检）
 R  真实库本地 runner（仓库外路径 + 哈希登记 + 显式 SKIPPED；golden real 2 条占位）
 ```
@@ -100,7 +100,7 @@ builder 能力清单：STF1 头（magic/version/输入数/输出数/scale）、�
 | F4 | 17 shim + stub/real/auto | ✓ | ✓ | ✓ | ✗ | ✓ | 粘性路由 + F1/F2/F3 + backend_info golden（W2） | ABI 门禁→W5 |
 | F5 | 后端诊断 | ✓ | ✗ | ✓ | ✗ | ✓ | 二元名 + 文本 info + 三态 resolved（W2/W4 已落地） | 无 |
 | F6 | 错误模型 13 变体 | ✓ | ✗ | ✓ | ✗ | ✓ | 显式簿记 13/13 门禁化（B3；W2） | 无 |
-| F7 | CLI 0/1/2 + 记录行 | ✓ | ✗ | ✓ | ✗ | ✓ | 7 选项 + 记录行/退出码/落盘黄金脚本（W2 第六道门禁） | 无 |
+| F7 | CLI 0/1/2 + 记录行 | ✓ | ✗ | ✓ | ✗ | ✓ | 7 选项 + 记录行/退出码/落盘黄金脚本（W2 可选附加检查） | 无 |
 | F8 | 零入库 golden 链 | ✓ | ◐ | ✓ | ✗ | ✓ | 内嵌生成器 + SHA-256 + 容差（B13）；登记文件已消费（W2） | 无 |
 | F9 | 真实库/许可/平台 | ✗ | ✗ | ✗ | ◐ | ✗ | 未在本仓库复验（B18/B23） | 真机→W5；许可→W6 |
 | S1 | 预期场景端到端（模型→推理→输出） | ✓ | | ◐ | | ✓ | stub 链全绿；real 链 2 条 SKIPPED（B22） | real golden→W5 |
@@ -148,7 +148,7 @@ C 行含防火墙（C2）与许可红线（C3）两行。
 | `golden real micro_mul_f32 v1` | `real_golden_test.mbt`（`#skip` 块） | 需真实后端 + 仓库外真实库；默认 stub 环境显式 SKIPPED，首行断言 `backend_name()=="real"` |
 | `golden real micro_mul_f32 v2` | `real_golden_test.mbt`（`#skip` 块） | 同上；历史「2/2 通过」属仓库外事实，本轮未复验 |
 
-计数口径：默认 63 条声明（实际执行 61 + `#skip` 2）− 2 条 `#skip` = **61 执行**（2026-11-27 `moon test` 实测 61/61）；`moon test --include-skipped -f "golden real*"` 需真实库，缺失时显式 SKIPPED（退出码 78 口径），不进通过计数；历史 2/2 不计入当前结论。
+计数口径：`moon test` 当前输出 **Total tests: 62, passed: 62, failed: 0**；另有 2 条 `golden real` `#skip`，MoonBit 默认输出不含 skip，故文档统一记为 **62/62 + 2 skip**。`moon test --include-skipped -f "golden real*"` 需真实库，缺失时显式 SKIPPED（退出码 78 口径），不进通过计数；历史 2/2 不计入当前结论。
 
 ### 6.5 验收 ID 双向追溯表
 
@@ -205,11 +205,11 @@ W5/W6-A 已裁决并落地 runner/许可索引；真实库差分与设备报告�
 4. 变异自检：注入 3 类缺陷（跳过 AllocateTensors / 把 F1 误映射为 F2 / 容差公式放宽一个数量级），套件必须变红后还原复绿。
 5. 计数纪律：`#skip` 不计通过；过滤串以 `*` 结尾防空转假绿；`golden real` 历史 2/2 单列报告。
 6. 引用实存性扫描：`.mbt/.md/.yml/.c/.h/.ps1` 注释与文案引用的仓库内路径全部实存；README 索引与快照逐条一致；`.local/` 仍不受版本控制；无工作区路径与兄弟模块符号。
-7. L4 CLI 黄金（第六道 CI 门禁）：`tools/cli-golden.py` 逐字节比对帮助/用法/stub 全链/out-raw/auto 回退/real 强制失败/尺寸不符；文本 hex 夹具生成模型与输入，二进制零入库。
+7. L4 CLI 黄金（可选附加检查，非机械第六道门禁）：`tools/cli-golden.py` 逐字节比对帮助/用法/stub 全链/out-raw/auto 回退/real 强制失败/尺寸不符；文本 hex 夹具生成模型与输入，二进制零入库。
 
 ## 9. CI 集成与执行入口
 
-六道门禁（CI 已固化）：五道 MoonBit 门禁 + L4 CLI 黄金脚本（W2 T-W2-4）。L0/L1/L2 挂 `moon test`；L3/R/真实库对照为脚本层可选 job，缺失显式 SKIPPED。
+五道主门禁为 MoonBit 的 check/build/test/fmt/info 快照检查；`tools/cli-golden.py` 是可选 L4 附加检查，不设机械「第六道门禁」。L0/L1/L2 挂 `moon test`；L3/R/真实库对照为脚本层可选 job，缺失显式 SKIPPED。
 复验命令（本仓库根目录自包含）：
 
 ```bash
@@ -232,4 +232,4 @@ Windows 下 moon 把进度写 stderr，以退出码与 `Total tests: N, passed: 
 4. 每包合入 ⇒ 开发文档 DoD 勾选 + 矩阵现状刷新 + CHANGELOG 测试增量。
 5. 「通过」须可复验：命令 + 日期 + 计数；SKIPPED 永远单列；stub/real 期望永不混报。
 
-落地验收（2026-11-27）：L0 ✓（62 条实跑）、L1 ✓（W3 元数据边界 + 截断/突变扫描）、L2 ✓（内嵌 golden + 登记文件双通道已消费；真实 golden 归 W5）、L3 ◐（W5-A runner 已落地；无登记真实库→SKIPPED，未声称通过）、L4 ✓（CLI 白盒 + `tools/cli-golden.py` 第六道门禁）、L5 ✓（快照纯加法、13/13 簿记穷尽匹配门禁、README 索引对齐、EOL 策略）、R ✗（2 条 `#skip` 占位；W5-A 本地可选）；W5/W6 已裁决 A，不再列为待裁决项。
+落地验收（2026-11-27）：L0 ✓（62/62 + 2 skip）、L1 ✓（W3 元数据边界 + 截断/突变扫描）、L2 ✓（内嵌 golden + 登记文件双通道已消费；真实 golden 归 W5）、L3 ◐（W5-A runner 已落地；无登记真实库→SKIPPED，未声称通过）、L4 ✓（CLI 白盒 + 可选 `tools/cli-golden.py` 附加检查）、L5 ✓（快照纯加法、13/13 簿记穷尽匹配门禁、README 索引对齐、EOL 策略）、R ✗（2 条 `#skip` 占位；W5-A 本地可选）；W5/W6 已裁决 A，不再列为待裁决项。

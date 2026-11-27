@@ -1,7 +1,7 @@
 # tflite_ffi · TFLite C API 推理运行时
 
 > 独立发布单元 ｜ L3 感知绑定 ｜ `preferred_target = native` ｜ Apache-2.0
-> 状态：`moon test` **62/62** 通过（2026-11-27 本机实测，另有 2 个 `#skip` 用例不计入）；本文件是本仓库**唯一入口文档**（docs 索引见 §2.2）。
+> 状态：`moon test` **62/62 + 2 skip**（2026-11-27 本机实测；2 条 `golden real` `#skip` 不计入通过）；本文件是本仓库**唯一入口文档**（docs 索引见 §2.2）。
 > 公开 API 以 `pkg.generated.mbti` 为准（由 `moon info` 生成，禁手工编辑）；加法性变更须登记簿记 + 快照审阅 + 快照门禁。
 
 ## 1. 定位与边界
@@ -25,8 +25,8 @@
 
 - D1 库层默认 `stub`、CLI 默认 `auto`；D2 真实库获取顺序 本地探测 → 官方预编译 → 官方源码最小构建（限 40 分钟）→ fail-closed 缺口登记；D3 微型模型零入库；D5 不公开 `select_backend`（走 `MB_TFLITE_BACKEND` / `MB_TFLITE_LIB_PATH`）；D6 退出码 0/1/2。
 - STF1（stub 模型）与 TFL3（real flatbuffer 模型）**不可混用**；数值容差 `|got−want| ≤ 1e-6 + 1e-5×|want|`，stub/real 期望值显式拆分不得混报。
-- win-x64 `tensorflowlite_c.dll` v2.14.0 已本地源码构建（2,244,096 B / 24 导出 / SHA-256 `6bec4ce6…eccbac`），`golden real*` 2/2；linux/android 仍按 fail-closed 缺口登记。
-- Q10：两个真实目标模型在 real 路径均 `INVOKE|ok`，`c_api.h` 稳定 ABI 未暴露缺失算子；Q4 许可事实层已收敛、法务残余仍开放。
+- **[已复验：本机未入库真实库]** 2026-11-27 使用本机未入库的 win-x64 `tensorflowlite_c.dll` v2.14.0，设置 `MB_TFLITE_BACKEND=real` 与 `MB_TFLITE_LIB_PATH` 后运行 `moon test --include-skipped -f "golden real*"`，结果 **2/2**；默认 `moon test` 仍为 **62/62 + 2 skip**，真实库与模型不入库。
+- **[历史外部记录，不计当前通过]** 同一轮仓库外 Q10 记录曾称两个真实目标模型在 real 路径均 `INVOKE|ok`；当前仓库未复验该结论，Q4 法务残余仍开放，详见 [`docs/GAPS.md`](docs/GAPS.md)。
 - 2026-11-17 裁决 A 落地：`tools/real-golden.sh` 以仓库外库路径 + SHA-256 登记驱动真实 golden，缺库/缺工具显式 SKIPPED（退出码 78）、哈希未登记硬失败；许可口径与分发红线见 [`docs/LICENSE-INDEX.md`](docs/LICENSE-INDEX.md)。
 
 ### 2.1 STF1 内部格式（stub 运行时契约）
@@ -86,7 +86,7 @@ pub type TensorIndex = Int32
 ## 5. 命令行与验证
 
 - `moon run cmd/main --target native -- --model <path> [--backend stub|real|auto] [--lib <path>] [--threads N] [--info]`；输出 `MODEL| INPUTS| OUTPUTS| OUTDESC| INVOKE| OUTDATA| DONE|`。
-- 复验（六道门禁，CI 同序）：`moon clean` → `moon check --deny-warn` → `moon build` → `moon test` → `moon fmt --check` → `moon info` 后检查 `pkg.generated.mbti` 无意外 diff → `python3 tools/cli-golden.py`（L4 CLI 记录行/退出码/落盘字节黄金，文本 hex 夹具，二进制零入库）。
+- 复验：先运行 `moon clean`，再执行五道主门禁 `moon check --deny-warn` → `moon build` → `moon test` → `moon fmt --check` → `moon info` 后检查 `pkg.generated.mbti` 无意外 diff；另可运行 `python3 tools/cli-golden.py` 作为**可选 L4 CLI golden 附加检查**（记录行/退出码/落盘字节黄金，文本 hex 夹具，二进制零入库），不设机械「第六道门禁」。缺库导致的 `#skip`/SKIPPED 不得算通过。
 - 本仓库为独立 Git 仓库，文档与 CI 均自包含，不依赖工作区其他目录。
 
 ## 6. 风险与未决

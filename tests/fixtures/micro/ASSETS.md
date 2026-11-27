@@ -1,8 +1,8 @@
 # tests/fixtures/micro/ — 自产微型模型资产登记（ASSETS.md）
 
-> （2026-11-08；数据口径见 `../golden/ASSETS.md` §1，零入库红线见 `../../../docs/LICENSE-INDEX.md`）。
+> （2026-11-08；数据口径见 [`tests/fixtures/golden/ASSETS.md`](../golden/ASSETS.md) §1，零入库红线见 [`docs/LICENSE-INDEX.md`](../../../docs/LICENSE-INDEX.md)）。
 > **零入库**：`.tflite` / `.stf1` 二进制不进仓库
-> （生成到 `tflite_ffi/.local/models/` 或 `@fs.tmpdir()`，`.local/` 已被 .gitignore
+> （生成到 `.local/models/` 或 `@fs.tmpdir()`，`.local/` 已被 .gitignore
 > 覆盖）。本目录只登记**生成方式 / SHA-256 / 许可**；测试内嵌生成器重建字节并
 > 断言 SHA-256 == 本表登记值（`real_golden_test.mbt` 用例
 > `golden tflite micro model registry sha256`，非 skip、每次 `moon test` 都跑）。
@@ -22,9 +22,9 @@
   Model.version=3，MulOptions=BuiltinOptions 21），real 后端用。
 - `micro_mul_f32.stf1`：STF1 **镜像**（stub 后端用）：同名同 I/O 形状，
   scale=1.0 恒等——STF1 仅支持标量 scale 逐元素缩放，无法表达 MUL 权重的
-  逐元素语义；语义差异见 README.md §2（双路径语义差异登记）。
+  逐元素语义；语义差异见 [`README.md`](../../../README.md) §2.1（STF1 内部格式）。
 
-## 测试向量（golden hex 登记，与 `../golden/micro_mul_f32.numeric.norm.txt` 一致）
+## 测试向量（golden hex 登记，与 `tests/fixtures/golden/micro_mul_f32.numeric.norm.txt` 一致）
 
 | 向量 | 输入（f32 hex） | MUL 期望（f32 hex） | 说明 |
 |---|---|---|---|
@@ -46,10 +46,10 @@ STF1 镜像（scale=1.0 恒等）期望：V1/V2 输出 = 各自输入 hex。
   结尾 pad 至 `已写 % 16 == 8` 后写 `"TFL3"` 标识与根 uoffset，总长 % 16 == 0
   （Buffer.data force_align=16）。
 - 生成命令：`powershell -File tools/gen-micro-model.ps1`（默认输出
-  `tflite_ffi/.local/models/`）。
+  `.local/models/`）。
 - 参考输出=独立解析计算：`real_golden_test.mbt` 内嵌 mini flatbuffer 解析器
   抽取常量 w 并校验 TFL3 结构，`want = f32(f64(in) × f64(w))`，与上表 hex 互证。
 
 ## 许可
 
-自产内容，无第三方素材；Apache-2.0（与 `tflite_ffi/LICENSE` 同口径）。
+自产内容，无第三方素材；Apache-2.0（与 [`LICENSE`](../../../LICENSE) 同口径）。

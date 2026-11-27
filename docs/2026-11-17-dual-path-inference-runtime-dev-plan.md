@@ -34,7 +34,7 @@
 | B3 | 已实测：错误变体逐个数清为 **13**；显式簿记 **13/13**（每变体至少一条直接变体名断言），无死变体 | `tflite_ffi.mbt` L101–115；`pkg.generated.mbti` L15–29；各 `*_test.mbt`/`*_wbtest.mbt` 变体名 Grep |
 | B4 | 已实测：测试 **49/49**，文件分布 `backend_wbtest` 8 + `q10_coverage_test` 6 + `real_golden_test` 5（其中 2 条 `#skip`）+ `resize_allocate_test` 8 + `tflite_ffi_test` 12 + `tflite_ffi_wbtest` 10；默认执行 = 49，`golden real` 2 条显式 SKIPPED 不计通过 | `moon test` 实跑；`grep -c '^test "'` 逐文件重数；`#skip` 位于 L830/L856 |
 | B5 | 已实测：五门禁全绿，双快照 `moon info` 前后无 diff；CLI 冒烟随测试执行 | 2026-11-17 五门禁实跑记录 |
-| B6 | 漂移（计数）：`git rev-list --count HEAD` = **18**，仓库外申报口径写 17；差异仅登记不回写 | 2026-11-17 `git rev-list --count HEAD` |
+| B6 | 提交数属于易变仓库状态，不作为产品交付事实；历史申报中的 17/18 仅保留为 2026-11-17 时点记录，本文不维护当前提交计数 | 历史记录；当前结论以源码、快照与测试输出为准 |
 | B7 | 已实现：34 个受版本控制文件；零第三方依赖（3 个 native C 源文件自研）；`.local/` 含本地构建源码/产物但未被 git 跟踪（`git ls-files .local` 为空）；零模型/真实库入库 | `git ls-files`；`moon.mod`；目录实测 |
 | B8 | 已实现：17 个包私有 `mb_tfl_*` shim 声明齐全，含 `#borrow` 标注（model_bytes/dims/src/dst）；符号不进 `moon info` 快照；另有 5 个包白盒私有钩子 | `tflite_ffi.mbt` L145–249；`backend.mbt` L18–47；`native/mb_tfl_dispatch.c` |
 | B9 | 已实现：stub/real/auto 三模式、进程级一次性解析与粘性路由；env `MB_TFLITE_BACKEND`/`MB_TFLITE_LIB_PATH`；F1 路径探测 / F2 映像无效 / F3 加载失败；auto 回退 stub、real 强制失败显式报错 | `backend.mbt` L1–82；`backend_wbtest.mbt` 8 例 |
@@ -57,7 +57,7 @@ F# → B# 覆盖：F1→B1/B10；F2→B12；F3→B11；F4→B8/B9；F5→B9/B19�
 
 **对历史口径的修正**（以 2026-11-17 实测为准）：
 
-1. 提交数：仓库外申报口径 17 → 实测 **18**（B6；不回写仓库外材料）。
+1. 提交数：历史申报口径 17 与当时实测 18 的差异仅作为 2026-11-17 历史记录保留；提交数不再作为当前交付结论（B6）。
 2. 测试 **49/49**、2 条 `#skip`、错误变体 **13**、17 shim、双快照无漂移均实测成立（B3/B4/B5/B8）。
 3. README API 索引不完整：漏外部类型、别名与 `to_repr`（B2）。
 4. 登记文件 `micro_mul_f32.numeric.norm.txt` 实存但零测试消费：此前「两文件是测试断言目标」的表述不成立（B14），须设清理/门禁工作包。
@@ -197,7 +197,7 @@ pub fn backend_resolved() -> String
 ```text
 M0（2026-11-27 已交付）  W1 漂移清理与自包含（零风险文档/注释/CI）
 M1（2026-11-27 已交付）  W3 C 元数据 fail-closed 加固（安全缺口，行为增强例外）
-M2（2026-11-27 已交付）  W2 双路径 golden 与诊断门禁（高价值低成本；第六道 CLI 门禁）
+M2（2026-11-27 已交付）  W2 双路径 golden 与诊断门禁（高价值低成本；L4 CLI golden 为可选附加检查）
 M3（2026-11-27 已交付）  W4 backend_resolved 诊断防火墙（纯加法，快照 +1 pub）
 M4（已裁决）  W5 runner 已落地（真机未实测）+ W6 许可索引已落地
 ```
@@ -217,7 +217,7 @@ M4（已裁决）  W5 runner 已落地（真机未实测）+ W6 许可索引已�
 - [x] 新增 API 与 mbti 草案一致（W4 `backend_resolved` 纯加法）；零新增错误变体（仍 13 个）
 - [x] 快照 diff 纯加法（+1 pub / +2 行含空行），CHANGELOG 已登记
 - [x] `T-W1-*`/`T-W2-*`/`T-W3-*`/`T-W4-*` 验收全绿；`#skip` 显式标注原因、不计通过
-- [x] 六道门禁全绿（五道 MoonBit + L4 CLI 黄金）；CLI 记录行/退出码零意外漂移（`tools/cli-golden.py`）
+- [x] 五道主门禁全绿；L4 CLI golden 作为可选附加检查通过，不设机械第六道门禁；CLI 记录行/退出码零意外漂移（`tools/cli-golden.py`）
 - [x] 防火墙回归：新函数/新包合入后旧 API 在既有 49 条语料上输出逐字节不变、旧用例零改动全绿
 - [x] 畸形模型/元数据无 panic、无越界、无大分配（W3 截断/突变扫描 + 元数据上界）
 - [x] 零新第三方依赖；零许可不明二进制入库；`.local/` 仍不受版本控制
