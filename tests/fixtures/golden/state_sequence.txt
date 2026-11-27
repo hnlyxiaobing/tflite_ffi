@@ -1,0 +1,7 @@
+state.initial=Ready
+desc.out=out|f32|1 4|16
+state.after_set_input=Ready
+state.after_invoke=Ready
+output.hex=40000000,40800000,40c00000,41000000
+state.after_close=Closed
+close.again=AlreadyClosed

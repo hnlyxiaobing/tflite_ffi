@@ -1,0 +1,7 @@
+mode=real
+resolved=none
+lib_path=no_such_library_file
+load_status=F1
+reason=F1 path_probe_failed: path_not_found; real_forced_unavailable
+tfl_version=unknown
+schema_version=unknown

@@ -1,0 +1,13 @@
+LibraryNotLoaded
+ModelCreateFailed
+InterpreterCreateFailed
+AllocateTensorsFailed
+InvalidTensorIndex
+ResizeFailed
+CopyFromBufferFailed
+CopyToBufferFailed
+InvokeFailed
+BufferSizeMismatch
+UnsupportedDtype
+AlreadyClosed
+NullHandle

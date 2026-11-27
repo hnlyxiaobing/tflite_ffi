@@ -1,0 +1,2 @@
+error: 未知选项：--bogus
+运行 tflite-cli --help 查看用法

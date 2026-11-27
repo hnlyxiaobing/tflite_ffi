@@ -1,0 +1,7 @@
+mode=auto
+resolved=stub
+lib_path=no_such_library_file
+load_status=F1
+reason=F1 path_probe_failed: path_not_found; auto_fallback_stub
+tfl_version=unknown
+schema_version=unknown

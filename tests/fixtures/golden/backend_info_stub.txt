@@ -1,0 +1,7 @@
+mode=stub
+resolved=stub
+lib_path=
+load_status=F0
+reason=F0 stub_default_real_not_attempted
+tfl_version=unknown
+schema_version=unknown

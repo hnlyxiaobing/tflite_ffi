@@ -1,0 +1,2 @@
+error: 缺少参数（需要 --model <path> 或 --info）
+运行 tflite-cli --help 查看用法
