@@ -80,10 +80,14 @@ def main() -> int:
         fail("moon build", build.stdout + build.stderr)
 
     exe = ROOT / "_build" / "native" / "debug" / "build" / "cmd" / "main" / (
-        "main.exe" if os.name == "nt" else "main"
+        "main" if os.name != "nt" else "main.exe"
     )
     if not exe.is_file():
-        fail("locate cli", f"missing {exe}")
+        portable_exe = exe.with_suffix(".exe")
+        if portable_exe.is_file():
+            exe = portable_exe
+    if not exe.is_file():
+        fail("locate cli", f"missing {exe} or {exe.with_suffix('.exe')}")
 
     model_hex = read_hex("cli_model_stf1.hex")
     input_hex = read_hex("cli_input_v1.hex")
