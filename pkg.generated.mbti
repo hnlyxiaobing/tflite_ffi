@@ -10,6 +10,8 @@ pub fn backend_info() -> String
 
 pub fn backend_name() -> String
 
+pub fn backend_resolved() -> String
+
 // Errors
 #derive(@debug.Debug)
 pub(all) suberror TfLiteError {
